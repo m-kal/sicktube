@@ -5,11 +5,11 @@ import youtube_dl
 # youtube-saver dependencies
 import os
 
-# temp config data
-plexDir = 'x:/plex/'
-
-youtubeDir = plexDir + 'youtube/'
-print youtubeDir
+# Create Youtube-Saver settings
+youtubeSaverSettings = {
+    'plex-drive':   'x',
+    'plex-dir':     'youtube/'
+}
 
 def GetResDictValue(resDict, key):
     res = resDict
@@ -19,7 +19,6 @@ youtubeDlSettings = {
     # set options critical to expected behavior
     'skip_download': 'true',
     'format': 'best',
-    #'merge_output_format': 'mkv',
 
     # overwrite any youtube-dl settings that may interfere with expected behavior
     'writeinfojson': 'false',
@@ -31,41 +30,49 @@ youtubeDlSettings = {
 urls = [
 ]
 
-def printUresDict(uresDict):
-    print uresDict[u'uploader']
+existsCount = 0;
+newCount = 0
 
-    uploader = uresDict[u'uploader'].encode('ascii', 'ignore')
-    creator = uploader.replace(' ', '');
-    creatorDir = youtubeDir + creator + '/'
+def formatFolderName(str):
+    return str.title().replace(' ','')
 
-    print uploader
+def printUresDict(uresDict, saveDir, saveName):
+    global existsCount
+    global newCount
 
-    title   = uresDict[u'title'].encode('ascii', 'ignore')
-    id      = uresDict[u'id'].encode('ascii', 'ignore')
-    ext     = uresDict[u'ext'].encode('ascii', 'ignore')
+    uploader    = uresDict['uploader'].encode('ascii', 'ignore')
+    creator     = formatFolderName(uploader)
+    creatorDir  = saveDir + creator + '/'
+    fname       = creatorDir + saveName
+    fname       = os.path.abspath(fname)
+    creatorDir  = os.path.abspath(creatorDir)
 
-    ext = 'mkv'
-    fname   = creatorDir + title + '-' + id + '.' + ext
-    print fname
-
-    print creatorDir
-    print os.path.exists(creatorDir)
-    print os.path.exists(fname)
-
-def processUrl(ydl, url):
-    uresDict = ydl.extract_info(url=url, download='False');
-
-    if uresDict.has_key(u'entries') is False:
-        printUresDict(uresDict)
+    exists = os.path.exists(fname)
+    if exists:
+        existsCount += 1
     else:
-        for entry in uresDict[u'entries']:
-            ydl.process_info(entry)
-            printUresDict(entry)
+        newCount += 1
 
-def ProcessUrls(ydlSettings, urls):
+    print '{0} [ {1} ]'.format(exists, fname)
+
+def processUrl(ydl, url, dlDir):
+    uresDict = ydl.extract_info(url=url, download=False);
+    if uresDict.has_key('entries') is False:
+        ydl.process_info(uresDict)
+        uresDict['ext'] = 'mkv'
+        printUresDict(uresDict, dlDir, ydl.prepare_filename(uresDict))
+    else:
+        for entry in uresDict['entries']:
+            ydl.process_info(entry)
+            entry['ext'] = 'mkv'
+            printUresDict(entry, dlDir, ydl.prepare_filename(entry))
+
+def ProcessUrls(ydlSaverSettings, ydlSettings, urls):
     with youtube_dl.YoutubeDL(ydlSettings) as ydl:
+        dlDir = ydlSaverSettings['plex-drive'] + ':' + '/' + formatFolderName(ydlSaverSettings['plex-dir']) + '/'
         for url in urls:
-            processUrl(ydl, url);
+            processUrl(ydl, url, dlDir);
 
 # Main func
-ProcessUrls(youtubeDlSettings, urls)
+ProcessUrls(youtubeSaverSettings, youtubeDlSettings, urls)
+print "New vs Exists = {0} vs {1}".format(newCount, existsCount)
