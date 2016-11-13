@@ -15,19 +15,20 @@ INI_FILE_SETTINGS_URLS_OPT = 'urls'
 SAVER_SETTINGS = {
     'plex-drive':   'x',
     'output-template': youtube_dl.DEFAULT_OUTTMPL,
-    'prefix-extractor-dir': True,
+    'prefix-extractor-dir': False,
 }
 
 # Create Youtube-DL downloader settings
 YOUTUBEDL_SETTINGS = {
     # set options critical to expected behavior
-    'format':           'best', # Caching assumes we want best quality to transcode later
-    'skip_download':    True,   # Skips downloading the video file but will download the .info.json file
-    'simulate':         True,   # Skips downloading the video and the .info.json file
+    'format':           'bestvideo+bestaudio',  # Caching assumes we want best quality to transcode later
+    'skip_download':    True,                   # Skips downloading the video file but will download the .info.json file
+    'simulate':         True,                   # Skips downloading the video and the .info.json file
 
     # overwrite any youtube-dl settings that may interfere with expected behavior
-    'writeinfojson':    False,
-    'quiet':            True
+    'writeinfojson':    False,                  # Don't write out the info.json file
+    'quiet':            True,                   # Don't spam the console with debug info
+    'ffmpeg_location':  'c:/ffmpeg/bin'         # Location of FFMPEG
 }
 
 class YoutubeSaver:
@@ -72,13 +73,32 @@ class YoutubeSaver:
 
         return self.sectionUrlDict
 
-    def DetermineOutputTemplate(self, section):
-        return '{0}:/{1}/{2}%(uploader)s/{3}'.format(self.settings['plex-drive'], section, ('%(extractor_key)s/' if 'prefix-extractor-dir' in self.settings and self.settings['prefix-extractor-dir'] else ''), self.settings['output-template'])
+    def DetermineOutputDir(self, section):
+        return '{0}:/{1}/{2}%(uploader)s/'.format(self.settings['plex-drive'], section, ('%(extractor_key)s/' if 'prefix-extractor-dir' in self.settings and self.settings['prefix-extractor-dir'] else ''))
+
+    def GetFullOutputTemplate(self, section):
+        return '{0}{1}'.format(self.DetermineOutputDir(section), self.settings['output-template'])
+
+    def GetFullArchiveFilePath(self, section):
+        return '{0}:/{1}/{2}'.format(self.settings['plex-drive'], section, 'archive.txt')
+
+    def TouchArchiveFile(self, path):
+        basedir = os.path.dirname(path)
+        if not os.path.exists(basedir):
+            os.makedirs(basedir)
+        if not os.path.exists(path):
+            with open(path, 'a'):
+                os.utime(path, None)
 
     def ProcessUrls(self, section, urls, download=False):
         runSettings = self.ytdlSettings
-        runSettings['outtmp'] = self.DetermineOutputTemplate(section)
-        print runSettings['outtmp']
+        runSettings['outtmpl'] = self.GetFullOutputTemplate(section)
+        runSettings['download_archive'] = self.GetFullArchiveFilePath(section)
+        print runSettings['outtmpl']
+        self.TouchArchiveFile(runSettings['download_archive'])
+        if download:
+            runSettings['skip_download'] = False
+            runSettings['simulate'] = False
         self.SetYoutubeDlSettings(runSettings)
         for url in urls:
             self.ProcessUrl(url)
@@ -106,13 +126,17 @@ class YoutubeSaver:
         self.runStats = { 'new': 0, 'old': 0 }
         for section in self.sectionUrlDict:
             urls = self.sectionUrlDict[section]
-            tmpYtDlSettings = self.ytdlSettings
             self.ProcessUrls(section, urls, download=False)
+
+    def Download(self):
+        self.runStats = { 'new': 0, 'old': 0 }
+        for section in self.sectionUrlDict:
+            urls = self.sectionUrlDict[section]
+            self.ProcessUrls(section, urls, download=True)
 
     def DumpUrls(self):
         for section in self.sectionUrlDict:
             urls = self.sectionUrlDict[section]
             print '[{0}] = {1}'.format(section, urls)
 
-ytsv = YoutubeSaver.FromConfigFile()
-ytsv.DryRun()
+YoutubeSaver.FromConfigFile().Download()
