@@ -4,75 +4,115 @@ import youtube_dl
 
 # youtube-saver dependencies
 import os
+import ConfigParser
+
+# Consts
+INI_FILE_SETTINGS_FILENAME = 'settings.cfg'
+INI_FILE_SETTINGS_SECTION  = 'ytsave-settings'
+INI_FILE_SETTINGS_URLS_OPT = 'urls'
 
 # Create Youtube-Saver settings
-youtubeSaverSettings = {
+SAVER_SETTINGS = {
     'plex-drive':   'x',
-    'plex-dir':     'youtube/'
+    'output-template': youtube_dl.DEFAULT_OUTTMPL,
+    'prefix-extractor-dir': True,
 }
-
-def GetResDictValue(resDict, key):
-    res = resDict
 
 # Create Youtube-DL downloader settings
-youtubeDlSettings = {
+YOUTUBEDL_SETTINGS = {
     # set options critical to expected behavior
-    'skip_download': 'true',
-    'format': 'best',
+    'format':           'best', # Caching assumes we want best quality to transcode later
+    'skip_download':    True,   # Skips downloading the video file but will download the .info.json file
+    'simulate':         True,   # Skips downloading the video and the .info.json file
 
     # overwrite any youtube-dl settings that may interfere with expected behavior
-    'writeinfojson': 'false',
-    'simulate': 'true',
-    'quiet': 'true'
+    'writeinfojson':    False,
+    'quiet':            True
 }
 
-# Define URLs to use
-urls = [
-]
+class YoutubeSaver:
+    def __init__(self):
+        sectionUrlDict = {}
+        youtubeDl = None
+        ytdlSettings = {}
+        settings = {}
+        runStats = { 'new': 0, 'old': 0 }
 
-existsCount = 0;
-newCount = 0
+    @staticmethod
+    def FromConfigFile(filename=INI_FILE_SETTINGS_FILENAME, settings=SAVER_SETTINGS, ytdlSettings=YOUTUBEDL_SETTINGS):
+        if not os.path.exists(filename):
+            print '{0} does not exist.'.format(filename)
+            return None
 
-def formatFolderName(str):
-    return str.title().replace(' ','')
+        ytsv = YoutubeSaver()
+        ytsv.SetSettings(settings)
+        ytsv.SetYoutubeDlSettings(ytdlSettings)
+        ytsv.ParseConfig(filename)
 
-def printUresDict(uresDict, saveDir, saveName):
-    global existsCount
-    global newCount
+        return ytsv
 
-    uploader    = uresDict['uploader'].encode('ascii', 'ignore')
-    creator     = formatFolderName(uploader)
-    creatorDir  = saveDir + creator + '/'
-    fname       = creatorDir + saveName
-    fname       = os.path.abspath(fname)
-    creatorDir  = os.path.abspath(creatorDir)
+    def SetSettings(self, settings):
+        self.settings = settings
 
-    exists = os.path.exists(fname)
-    if exists:
-        existsCount += 1
-    else:
-        newCount += 1
+    def SetYoutubeDlSettings(self, ytdlSettings):
+        self.ytdlSettings = ytdlSettings
+        self.youtubeDl = youtube_dl.YoutubeDL(self.ytdlSettings)
 
-    print '{0} [ {1} ]'.format(exists, fname)
+    def ParseConfig(self, filename=INI_FILE_SETTINGS_FILENAME):
+        self.sectionUrlDict = {}
+        config = ConfigParser.SafeConfigParser(self.settings, allow_no_value=True)
+        config.read(filename)
+        for section in config.sections():
+            if section == INI_FILE_SETTINGS_SECTION:
+                continue
 
-def processUrl(ydl, url, dlDir):
-    uresDict = ydl.extract_info(url=url, download=False);
-    if uresDict.has_key('entries') is False:
-        ydl.process_info(uresDict)
-        uresDict['ext'] = 'mkv'
-        printUresDict(uresDict, dlDir, ydl.prepare_filename(uresDict))
-    else:
-        for entry in uresDict['entries']:
-            ydl.process_info(entry)
-            entry['ext'] = 'mkv'
-            printUresDict(entry, dlDir, ydl.prepare_filename(entry))
+            if config.has_option(section, INI_FILE_SETTINGS_URLS_OPT):
+                urlList = [s.strip() for s in config.get(section, INI_FILE_SETTINGS_URLS_OPT).splitlines()]
+                self.sectionUrlDict[section] = urlList
 
-def ProcessUrls(ydlSaverSettings, ydlSettings, urls):
-    with youtube_dl.YoutubeDL(ydlSettings) as ydl:
-        dlDir = ydlSaverSettings['plex-drive'] + ':' + '/' + formatFolderName(ydlSaverSettings['plex-dir']) + '/'
+        return self.sectionUrlDict
+
+    def DetermineOutputTemplate(self, section):
+        return '{0}:/{1}/{2}%(uploader)s/{3}'.format(self.settings['plex-drive'], section, ('%(extractor_key)s/' if 'prefix-extractor-dir' in self.settings and self.settings['prefix-extractor-dir'] else ''), self.settings['output-template'])
+
+    def ProcessUrls(self, section, urls, download=False):
+        runSettings = self.ytdlSettings
+        runSettings['outtmp'] = self.DetermineOutputTemplate(section)
+        print runSettings['outtmp']
+        self.SetYoutubeDlSettings(runSettings)
         for url in urls:
-            processUrl(ydl, url, dlDir);
+            self.ProcessUrl(url)
 
-# Main func
-ProcessUrls(youtubeSaverSettings, youtubeDlSettings, urls)
-print "New vs Exists = {0} vs {1}".format(newCount, existsCount)
+    def ProcessUrl(self, url):
+        resDict = self.youtubeDl.extract_info(url=url, download=False)
+        if 'entries' not in resDict:
+            self.youtubeDl.process_info(resDict)
+            self.printUresDict(self.youtubeDl.prepare_filename(resDict))
+        else:
+            for entry in resDict['entries']:
+                self.youtubeDl.process_info(entry)
+                self.printUresDict(self.youtubeDl.prepare_filename(entry))
+
+    def printUresDict(self, saveName):
+        exists = os.path.exists(saveName)
+        if exists:
+            self.runStats['old'] += 1
+        else:
+            self.runStats['new'] += 1
+
+        print '[{0} | {1} v {2}] {3}'.format(exists, self.runStats['new'], self.runStats['old'], saveName)
+
+    def DryRun(self):
+        self.runStats = { 'new': 0, 'old': 0 }
+        for section in self.sectionUrlDict:
+            urls = self.sectionUrlDict[section]
+            tmpYtDlSettings = self.ytdlSettings
+            self.ProcessUrls(section, urls, download=False)
+
+    def DumpUrls(self):
+        for section in self.sectionUrlDict:
+            urls = self.sectionUrlDict[section]
+            print '[{0}] = {1}'.format(section, urls)
+
+ytsv = YoutubeSaver.FromConfigFile()
+ytsv.DryRun()
