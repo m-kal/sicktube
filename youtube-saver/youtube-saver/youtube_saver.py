@@ -13,9 +13,10 @@ INI_FILE_SETTINGS_URLS_OPT = 'urls'
 
 # Create Youtube-Saver settings
 SAVER_SETTINGS = {
-    'plex-drive':   'x',
+    'abs-root-dir':   'x:/youtube',
     'output-template': youtube_dl.DEFAULT_OUTTMPL,
     'prefix-extractor-dir': False,
+    'postfix-extractor-dir': False,
 }
 
 # Create Youtube-DL downloader settings
@@ -27,7 +28,7 @@ YOUTUBEDL_SETTINGS = {
 
     # overwrite any youtube-dl settings that may interfere with expected behavior
     'writeinfojson':    False,                  # Don't write out the info.json file
-    'quiet':            True,                   # Don't spam the console with debug info
+    'quiet':            False,                  # Don't spam the console with debug info
     'ffmpeg_location':  'c:/ffmpeg/bin'         # Location of FFMPEG
 }
 
@@ -74,13 +75,15 @@ class YoutubeSaver:
         return self.sectionUrlDict
 
     def DetermineOutputDir(self, section):
-        return '{0}:/{1}/{2}%(uploader)s/'.format(self.settings['plex-drive'], section, ('%(extractor_key)s/' if 'prefix-extractor-dir' in self.settings and self.settings['prefix-extractor-dir'] else ''))
+        prefixDir = ('%(extractor_key)s/' if 'prefix-extractor-dir' in self.settings and self.settings['prefix-extractor-dir'] else '')
+        postfixDir = ('/%(extractor_key)s' if 'postfix-extractor-dir' in self.settings and self.settings['postfix-extractor-dir'] else '')
+        return '{0}/{1}{2}{3}/%(uploader)s/'.format(self.settings['abs-root-dir'], prefixDir, section, postfixDir)
 
     def GetFullOutputTemplate(self, section):
         return '{0}{1}'.format(self.DetermineOutputDir(section), self.settings['output-template'])
 
     def GetFullArchiveFilePath(self, section):
-        return '{0}:/{1}/{2}'.format(self.settings['plex-drive'], section, 'archive.txt')
+        return '{0}/{1}'.format(self.settings['abs-root-dir'], 'archive.txt')
 
     def TouchArchiveFile(self, path):
         basedir = os.path.dirname(path)
