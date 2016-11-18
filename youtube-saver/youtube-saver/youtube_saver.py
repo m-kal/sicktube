@@ -27,9 +27,10 @@ YOUTUBEDL_SETTINGS = {
     'simulate':         True,                   # Skips downloading the video and the .info.json file
 
     # overwrite any youtube-dl settings that may interfere with expected behavior
-    'writeinfojson':    False,                  # Don't write out the info.json file
+    'writeinfojson':    True,                   # Don't write out the info.json file
     'quiet':            False,                  # Don't spam the console with debug info
-    'ffmpeg_location':  'c:/ffmpeg/bin'         # Location of FFMPEG
+    'ffmpeg_location':  'c:/ffmpeg/bin',        # Location of FFMPEG
+    'ignoreerrors':     True
 }
 
 class YoutubeSaver:
@@ -77,6 +78,8 @@ class YoutubeSaver:
     def DetermineOutputDir(self, section):
         prefixDir = ('%(extractor_key)s/' if 'prefix-extractor-dir' in self.settings and self.settings['prefix-extractor-dir'] else '')
         postfixDir = ('/%(extractor_key)s' if 'postfix-extractor-dir' in self.settings and self.settings['postfix-extractor-dir'] else '')
+        if section == 'Misc':
+            return '{0}/{1}{2}{3}/'.format(self.settings['abs-root-dir'], prefixDir, section, postfixDir)
         return '{0}/{1}{2}{3}/%(uploader)s/'.format(self.settings['abs-root-dir'], prefixDir, section, postfixDir)
 
     def GetFullOutputTemplate(self, section):
@@ -97,7 +100,6 @@ class YoutubeSaver:
         runSettings = self.ytdlSettings
         runSettings['outtmpl'] = self.GetFullOutputTemplate(section)
         runSettings['download_archive'] = self.GetFullArchiveFilePath(section)
-        print runSettings['outtmpl']
         self.TouchArchiveFile(runSettings['download_archive'])
         if download:
             runSettings['skip_download'] = False
