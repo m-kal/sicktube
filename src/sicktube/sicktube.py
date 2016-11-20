@@ -113,8 +113,7 @@ The most commonly used %(prog)s commands are:
     # First-Order CLI commands
     def config(self):
         parser = argparse.ArgumentParser( description = self.commands['config'],
-                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter,
-                                          usage = '%(prog)s config' )
+                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument( '--config', action = 'store', help = 'Location of the settings configuration file' )
         args = parser.parse_args( sys.argv[ 2: ] )
 
@@ -126,13 +125,12 @@ The most commonly used %(prog)s commands are:
 
         # Pretty print each config
         for k in configs:
-            print '-=[ {0} ]=-'.format(k)
+            print '\nSection Config For: {0}\n'.format(k)
             pprint(self.GetSectionOptions(configs, k))
 
     def email(self):
-        parser = argparse.ArgumentParser( description = self.commands['config'],
-                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter,
-                                          usage = '%(prog)s config' )
+        parser = argparse.ArgumentParser( description = self.commands['email'],
+                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument( '--config', action = 'store', help = 'Location of the settings configuration file' )
         parser.add_argument( '--from-addr', action = 'store', help = 'Test sender\'s email address', default='admin@localhost' )
         parser.add_argument( '--to-addr', action = 'store', help = 'Test recipient\'s email address', default='admin@localhost' )
@@ -157,9 +155,8 @@ The most commonly used %(prog)s commands are:
         print 'Email Feature Status: {0}'.format('Enabled' if configs[INI_FILE_SETTINGS_SECTION]['email.enable'] else 'Disabled')
 
     def metadata(self):
-        parser = argparse.ArgumentParser( description = self.commands['config'],
-                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter,
-                                          usage = '%(prog)s config' )
+        parser = argparse.ArgumentParser( description = self.commands['metadata'],
+                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter )
         parser.add_argument( 'url', action = 'store', help = 'URL to extract metadata for' )
         parser.add_argument( '--save-as', action = 'store', help = 'Save the metadata to a file rather than printing to stdout' )
         parser.add_argument( '--config', action = 'store', help = 'Location of the settings configuration file' )

@@ -2,6 +2,57 @@
 
 ## Notes
 
+## Usage
+
+**Dump Configuration**
+
+Use the `config` command to print the global and per-section resolved config settings. This is useful to determine if config files are properly overriding global defaults.
+
+    sicktube config -h
+    usage: sicktube.py [-h] [--config CONFIG]
+
+    Dumps/prints the configuration file
+
+    optional arguments:
+      -h, --help              show this help message and exit
+      --config CONFIG         Location of the settings configuration file (default: None)
+
+**Test Email Configuration**
+
+Post-run emails can be enabled through the `email.enable` config setting. Use the `email` command to send a test message to validate the email server settings are correct.
+
+    sicktube email -h
+    usage: sicktube.py [-h] [--config CONFIG] [--from-addr FROM_ADDR]
+                   [--to-addr TO_ADDR] [--msg MSG] [--subject SUBJECT]
+
+    Email yourself a test message to check if the email options are configured
+    correctly
+
+    optional arguments:
+      -h, --help              show this help message and exit
+      --config CONFIG         Location of the settings configuration file (default: None)
+      --from-addr FROM_ADDR   Test sender's email address (default: admin@localhost)
+      --to-addr TO_ADDR       Test recipient's email address (default: admin@localhost)
+      --msg MSG               Test email message (default: This is a test message sent for Sicktube)
+      --subject SUBJECT       Test email message subject (default: [Sicktube] Test configuration email)
+
+**Dump Metadata Query Results**
+
+The `metadata` command will print (or save to file) the metadata returned based on a URL. This is useful to debug an individual video or playlist returning unexpected metadata values.
+
+    sicktube metadata -h
+    usage: sicktube.py [-h] [--save-as SAVE_AS] [--config CONFIG] url
+
+    Dumps/prints metadata for a url, useful for testing
+
+    positional arguments:
+      url                     URL to extract metadata for
+
+    optional arguments:
+      -h, --help              show this help message and exit
+      --save-as SAVE_AS       Save the metadata to a file rather than printing to stdout (default: None)
+      --config CONFIG         Location of the settings configuration file (default: None)
+
 ## Installation
 
 For Windows, the appropriate dirs are:
