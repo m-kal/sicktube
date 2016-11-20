@@ -1,4 +1,4 @@
-# [Project Name Here]
+# Sicktube
 
 ## Notes
 
@@ -17,7 +17,7 @@ The configuration files and settings are hierarchically structured with from glo
 
 Default configuration preferences can be set in the main module source. Each section declared in `settings.cfg` (or specified with the `--config` CLI arg) can apply sections-specific settings.
 
-### Video-Saver Settings
+### Sicktub Settings
 
 | Settings ID | Default Value | Description |
 |:--|:--|:--|
@@ -57,10 +57,10 @@ Youtube-dl settings several defaults set based on expected behavior
 * [x] Start with a scanner for existing folders and convert my manual process to a daemon running in python
 * [x] Scan those folders using youtube-dl and taking the metadata (not downloading the files) and feed it into plex
 * [ ] Common source for saver, scanner, and agent
-* [ ] Configuration checking
+* [x] Configuration checking
 * [ ] Create a channel to browse the configuration URLs for the existing folders
 * [ ] Convert the browsing to existing folders to browsing youtube/other-sites and on access, check for local cache else play and cache in background
-* [ ] Publish for github
+* [x] Publish for github
 
 # Mini Task List
 
