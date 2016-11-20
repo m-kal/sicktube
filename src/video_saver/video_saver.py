@@ -34,13 +34,24 @@ INI_FILE_SETTINGS_URLS_OPT = 'urls'
 
 # Create Youtube-Saver settings
 SAVER_SETTINGS = {
-    'abs-root-dir':   'x:/youtube',
-    'output-template': youtube_dl.DEFAULT_OUTTMPL,
-    'prefix-extractor-dir': False,
-    'postfix-extractor-dir': False,
+    # Directory settings
+    'dir.root': 'x:/youtube',
+    'dir.extractor.prefix': False,
+    'dir.extractor.postfix': False,
+    ##'dir.metadata.name': '.metadata',
+    ##'dir.archive.name': None,
 
-    'email-server': 'localhost',
-    'email-port': 8825
+    # File settings
+    'file.template.name': youtube_dl.DEFAULT_OUTTMPL,
+    ##'file.archive.name': 'archive.log', 
+    ##'file.archive.global': True, 
+    ##'file.metadata.cache.prefer': True,
+    ##'file.metadata.cache.force-rebuild': False,
+
+    # Email server configuratiton
+    'email.enable': False,
+    'email.server': 'localhost',
+    'email.port': 25
 }
 
 # Create Youtube-DL downloader settings
@@ -137,12 +148,13 @@ The most commonly used %(prog)s commands are:
 
         msg = MIMEText(args.msg)
         msg['Subject'] = args.subject
-        s = smtplib.SMTP(configs[INI_FILE_SETTINGS_SECTION]['email-server'], configs[INI_FILE_SETTINGS_SECTION]['email-port'])
+        s = smtplib.SMTP(configs[INI_FILE_SETTINGS_SECTION]['email.server'], configs[INI_FILE_SETTINGS_SECTION]['email.port'])
         msg['From'] = args.from_addr
         msg['To'] = args.to_addr
         s.sendmail(msg['From'], msg['To'], msg.as_string())
         s.quit()
         print 'Email message sent from `{0}` to `{1}` with a subject of `{2}`'.format(args.from_addr, args.to_addr, args.subject)
+        print 'Email Feature Status: {0}'.format('Enabled' if configs[INI_FILE_SETTINGS_SECTION]['email.enable'] else 'Disabled')
 
     def metadata(self):
         parser = argparse.ArgumentParser( description = self.commands['config'],
@@ -275,17 +287,17 @@ The most commonly used %(prog)s commands are:
         return parsedOptions
 
     def DetermineOutputDir(self, section):
-        prefixDir = ('%(extractor_key)s/' if 'prefix-extractor-dir' in self.settings and self.settings['prefix-extractor-dir'] else '')
-        postfixDir = ('/%(extractor_key)s' if 'postfix-extractor-dir' in self.settings and self.settings['postfix-extractor-dir'] else '')
+        prefixDir = ('%(extractor_key)s/' if 'dir.extractor.prefix' in self.settings and self.settings['dir.extractor.prefix'] else '')
+        postfixDir = ('/%(extractor_key)s' if 'dir.extractor.postfix' in self.settings and self.settings['dir.extractor.postfix'] else '')
         if section == 'Misc':
-            return '{0}/{1}{2}{3}/'.format(self.settings['abs-root-dir'], prefixDir, section, postfixDir)
-        return '{0}/{1}{2}{3}/%(uploader)s/'.format(self.settings['abs-root-dir'], prefixDir, section, postfixDir)
+            return '{0}/{1}{2}{3}/'.format(self.settings['dir.root'], prefixDir, section, postfixDir)
+        return '{0}/{1}{2}{3}/%(uploader)s/'.format(self.settings['dir.root'], prefixDir, section, postfixDir)
 
     def GetFullOutputTemplate(self, section):
-        return '{0}{1}'.format(self.DetermineOutputDir(section), self.settings['output-template'])
+        return '{0}{1}'.format(self.DetermineOutputDir(section), self.settings['file.template.name'])
 
     def GetFullArchiveFilePath(self, section):
-        return '{0}/{1}'.format(self.settings['abs-root-dir'], 'archive.txt')
+        return '{0}/{1}'.format(self.settings['dir.root'], 'archive.txt')
 
     def TouchArchiveFile(self, path):
         basedir = os.path.dirname(path)

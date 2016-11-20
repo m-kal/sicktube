@@ -13,19 +13,19 @@ For Windows, the appropriate dirs are:
 
 ## Configuration
 
-The configuration files and settings are hierarchically structured with from global to section. Each section to backup can have individual settings deviating from global settings. This is done by retrieving setting values from most specific to least specific, such that `cfg section > cfg _global > defaults`.
+The configuration files and settings are hierarchically structured with from global to section. Each section to backup can have individual settings deviating from global settings. This is done by retrieving setting values from most specific to least specific, such that `defaults < cfg _global < cfg section`.
 
-Default configuration preferences can be set in the main module source. Each section declared in `settings.cfg` (or specified with the `--settings` CLI arg) can apply sections-specific settings.
+Default configuration preferences can be set in the main module source. Each section declared in `settings.cfg` (or specified with the `--config` CLI arg) can apply sections-specific settings.
 
 ### Video-Saver Settings
 
 | Settings ID | Default Value | Description |
 |:--|:--|:--|
-| abs-root-dir | A | B |
 | cache-metadata | True | Downloads `.info.json` files into a `.metadata-cache` subfolder |
-| output-template | youtube_dl.DEFAULT_OUTTMPL | `<download-dir>/<output-template>` |
-| prefix-extractor-dir | False | Puts the extractor before the video section, `[...]/<extractor>/[section]/[...]` |
-| postfix-extractor-dir | False | Puts the extractor after the video section, `[...]/[section]/<extractor>/[...]` |
+| dir.root | A | B |
+| file.template.name | youtube_dl.DEFAULT_OUTTMPL | `<download-dir>/<output-template>` |
+| dir.extractor.prefix | False | Puts the extractor before the video section, `[...]/<extractor>/[section]/[...]` |
+| dir.extractor.postfix | False | Puts the extractor after the video section, `[...]/[section]/<extractor>/[...]` |
 
 ### Plex Metadata Agent Settings (DefaultPrefs.json)
 
@@ -33,8 +33,8 @@ The Plex metadata agent has several preferences for importing data into the Plex
 
 | Settings ID | Default Value | Description |
 |:--|:--|:--|
-| cache.prefer | True | Attempt to use local metadata cache files (*.info.json) to expedite metadata import |
-| cache.force-rebuild | False | Rebuilds missing metadata cache files if it is missing |
+| file.metadata.cache.prefer | True | Attempt to use local metadata cache files (`*.info.json`) to expedite metadata import |
+| file.metadata.cache.force-rebuild | False | Rebuilds missing metadata cache files if it is missing |
 
 ### Youtube-DL Settings
 
