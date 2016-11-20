@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 import youtube_dl
 
-# youtube-saver dependencies
+# sicktube dependencies
 import sys
 import os
 import ConfigParser
@@ -32,10 +32,10 @@ INI_FILE_SETTINGS_FILENAME = 'settings.cfg'
 INI_FILE_SETTINGS_SECTION  = '_global'
 INI_FILE_SETTINGS_URLS_OPT = 'urls'
 
-# Create Youtube-Saver settings
+# Create Sicktube settings
 SAVER_SETTINGS = {
     # Directory settings
-    'dir.root': 'x:/youtube',
+    'dir.root': 'x:/sicktube',
     'dir.extractor.prefix': False,
     'dir.extractor.postfix': False,
     ##'dir.metadata.name': '.metadata',
@@ -43,8 +43,8 @@ SAVER_SETTINGS = {
 
     # File settings
     'file.template.name': youtube_dl.DEFAULT_OUTTMPL,
-    ##'file.archive.name': 'archive.log', 
-    ##'file.archive.global': True, 
+    ##'file.archive.name': 'archive.log',
+    ##'file.archive.global': True,
     ##'file.metadata.cache.prefer': True,
     ##'file.metadata.cache.force-rebuild': False,
 
@@ -68,7 +68,7 @@ YOUTUBEDL_SETTINGS = {
     'ignoreerrors':     True
 }
 
-class YoutubeSaver:
+class Sicktube:
     """
     Management and execution for browsing the internet
     in a similar manner to existing browsing history
@@ -84,7 +84,7 @@ class YoutubeSaver:
         'metadata': 'Dumps/prints metadata for a url, useful for testing'
     }
     # program consts
-    PROG_NAME = 'YoutubeSaver'
+    PROG_NAME = 'Sicktube'
 
     def __init__(self):
 
@@ -188,7 +188,7 @@ The most commonly used %(prog)s commands are:
             print '{0} does not exist.'.format(filename)
             return None
 
-        ytsv = YoutubeSaver()
+        ytsv = Sicktube()
         ytsv.SetSettings(settings)
         ytsv.SetYoutubeDlSettings(ytdlSettings)
         ytsv.sectionUrlDict = ytsv.ParseConfig(filename)
@@ -357,4 +357,4 @@ The most commonly used %(prog)s commands are:
 
 # main()
 if __name__ == '__main__':
-    ytsv = YoutubeSaver()
+    ytsv = Sicktube()
