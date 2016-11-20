@@ -1,4 +1,4 @@
-# Title Here
+# [Project Name Here]
 
 ## Notes
 
@@ -20,35 +20,35 @@ Default configuration preferences can be set in the main module source. Each sec
 ### Video-Saver Settings
 
 | Settings ID | Default Value | Description |
-|-
+|:--|:--|:--|
 | abs-root-dir | A | B |
-| cache-metadata | True | Downloads `.info.json` files into a `.metadata-cache` subfolder
-| output-template | youtube_dl.DEFAULT_OUTTMPL | `<download-dir>/<output-template>`
-| prefix-extractor-dir | False | Puts the extractor before the video section, `[...]/<extractor>/[section]/[...]`
-| postfix-extractor-dir | False | Puts the extractor after the video section, `[...]/[section]/<extractor>/[...]`
+| cache-metadata | True | Downloads `.info.json` files into a `.metadata-cache` subfolder |
+| output-template | youtube_dl.DEFAULT_OUTTMPL | `<download-dir>/<output-template>` |
+| prefix-extractor-dir | False | Puts the extractor before the video section, `[...]/<extractor>/[section]/[...]` |
+| postfix-extractor-dir | False | Puts the extractor after the video section, `[...]/[section]/<extractor>/[...]` |
 
 ### Plex Metadata Agent Settings (DefaultPrefs.json)
 
 The Plex metadata agent has several preferences for importing data into the Plex server. These can be found in the `DefaultPrefs.json` file as well as in the Plex media server web client at `Settings > Server > Agents`.
 
 | Settings ID | Default Value | Description |
-|-
-| cache.prefer | True | Attempt to use local metadata cache files (*.info.json) to expedite metadata import
-| cache.force-rebuild | False | Rebuilds missing metadata cache files if it is missing
+|:--|:--|:--|
+| cache.prefer | True | Attempt to use local metadata cache files (*.info.json) to expedite metadata import |
+| cache.force-rebuild | False | Rebuilds missing metadata cache files if it is missing |
 
 ### Youtube-DL Settings
 
 Youtube-dl settings several defaults set based on expected behavior
 
 | Setting ID | Default Value | Description |
-|-
-| format | 'bestvideo+bestaudio' | Caching assumes we want best quality to transcode later
-| skip_download | True | Skips downloading the video file but will download the .info.json file
-| simulate | True | Skips downloading the video and the .info.json file
-| writeinfojson | True | Don't write out the info.json file
-| quiet | False | Don't spam the console with debug info
-| ffmpeg_location | c:/ffmpeg/bin | Location of FFMPEG
-| ignoreerrors | True | Supresses errors
+|:--|:--|:--|
+| format | 'bestvideo+bestaudio' | Caching assumes we want best quality to transcode later |
+| skip_download | True | Skips downloading the video file but will download the .info.json file |
+| simulate | True | Skips downloading the video and the .info.json file |
+| writeinfojson | True | Don't write out the info.json file |
+| quiet | False | Don't spam the console with debug info |
+| ffmpeg_location | c:/ffmpeg/bin | Location of FFMPEG |
+| ignoreerrors | True | Supresses errors |
 
 *Note: Update this to be generic in the future*
 
