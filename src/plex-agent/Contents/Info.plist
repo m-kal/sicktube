@@ -10,6 +10,10 @@
 	<string>Agent</string>
 	<key>PlexPluginMode</key>
 	<string>AlwaysOn</string>
+	<key>PlexAgentAttributionText</key>
+	<string>
+		Source code available at &lt;a href=&quot;https://github.com/m-kal/&quot; target=&quot;_blank&quot;&gt;https://github.com/m-kal/&lt;/a&gt; &lt;br /&gt; &#169; m-kal
+	</string>
 	<key>PlexPluginConsoleLogging</key>
 	<string>1</string>
 	<key>PlexPluginCodePolicy</key>

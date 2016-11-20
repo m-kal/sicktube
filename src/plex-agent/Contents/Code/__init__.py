@@ -12,7 +12,7 @@ import datetime, time
 
 # Only use unicode if it's supported, which it is on Windows and OS X,
 # but not Linux. This allows things to work with non-ASCII characters
-# without having to go through a bunch of work to ensure the Linux 
+# without having to go through a bunch of work to ensure the Linux
 # filesystem is UTF-8 "clean".
 #
 def unicodize(s):
@@ -28,34 +28,33 @@ def LogMsg(msg):
 
 def Start():
   pass
-  
+
 class PlexPersonalMediaAgentMovies(Agent.Movies):
   name = 'YoutubeSaverAgent'
   languages = Locale.Language.All()
   primary_provider = True
   accepts_from = ['com.plexapp.agents.localmedia']
-  
+
   def search(self, results, media, lang):
     LogMsg("search: {0} {1}".format(media.name, media.id))
     # Compute the GUID based on the media hash.
     part = media.items[0].parts[0]
-    
+
     # Get the modification time to use as the year.
     filename = unicodize(part.file)
     mod_time = os.path.getmtime(filename)
-    
+
     results.Append(MetadataSearchResult(id=part.hash, name=media.name, year=time.localtime(mod_time)[0], lang=lang, score=100))
-      
+
   def update(self, metadata, media, lang, force=False):
     LogMsg("update: {0} {1} {2} {3}".format(metadata, media, lang, force))
-    #metadata.title = media.title
 
     # Get the filename and the mod time.
     filename = unicodize(media.items[0].parts[0].file)
     mod_time = os.path.getmtime(filename)
-    
+
     date = datetime.date.fromtimestamp(mod_time)
-    
+
     ## Fill in the little we can get from a file.
     try: title = os.path.splitext(os.path.basename(filename))[0]
     except: title = media.title
@@ -64,7 +63,11 @@ class PlexPersonalMediaAgentMovies(Agent.Movies):
     infoJsonFile = file + '.info.json'
     if os.path.exists(infoJsonFile):
         downloadInfo = json.load(io.open(infoJsonFile))
-        metadata.rating = 3.0
+        # Ratings are based out of 10 but usually average_rating is out of 5
+        if 'average_rating' in downloadInfo:
+            metadata.rating = 2*float(downloadInfo['average_rating'])
+        else:
+            metadata.rating = 5.0
         # Summary
         if 'description' in downloadInfo:
             metadata.summary = "{0}".format(downloadInfo['description'])
@@ -74,16 +77,5 @@ class PlexPersonalMediaAgentMovies(Agent.Movies):
         # Title
         if 'title' in downloadInfo:
             metadata.title = "{0}".format(downloadInfo['title'])
-        # Website/Movie ID
-        #if 'id' in downloadInfo:
-        #    metadata.guid = "{0}".format(downloadInfo['id'])
-        # Year
-        #if 'upload_date' in downloadInfo:
-        #    dateObj = datetime.strptime(downloadInfo['upload_date'], '%Y%m%d')
-            #metadata.originally_available_at = dateObj
-            #metadata.year = datetime.strptime(downloadInfo['upload_date']).year
 
-      
-    #metadata.title = 'AgentUrI ' + title
-    #metadata.year = date.year
     metadata.originally_available_at = Datetime.ParseDate(str(date)).date()

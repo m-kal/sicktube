@@ -1,0 +1,14 @@
+[
+  {
+    "id": "cache.prefer",
+    "label": "Attempt to use local metadata cache files (*.info.json) to expedite metadata import",
+    "type": "bool",
+    "default": "true"
+  },
+  {
+    "id": "cache.force-rebuild",
+    "label": "Rebuilds missing metadata cache files if it is missing",
+    "type": "bool",
+    "default": "true"
+  }
+]
