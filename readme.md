@@ -25,8 +25,7 @@ Post-run emails can be enabled through the `email.enable` config setting. Use th
     usage: sicktube.py [-h] [--config CONFIG] [--from-addr FROM_ADDR]
                    [--to-addr TO_ADDR] [--msg MSG] [--subject SUBJECT]
 
-    Email yourself a test message to check if the email options are configured
-    correctly
+    Email yourself a test message to check if the email options are configured correctly
 
     optional arguments:
       -h, --help              show this help message and exit
@@ -84,6 +83,7 @@ The Plex metadata agent has several preferences for importing data into the Plex
 
 | Settings ID | Default Value | Description |
 |:--|:--|:--|
+| config.fullpath | `c:/sicktube/settings.cfg` | Full file system path to the configuration file for Sicktube used to generate the directory |
 | file.metadata.cache.prefer | True | Attempt to use local metadata cache files (`*.info.json`) to expedite metadata import |
 | file.metadata.cache.force-rebuild | False | Rebuilds missing metadata cache files if it is missing |
 

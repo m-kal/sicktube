@@ -22,7 +22,7 @@ TODO:
 * [ ] Video file rename changes may cause issue looking up `.info.json` files *// can make this a hard-no*
 * [ ] Instantiate a video-saver at PlexAgent initialization/Start() *// needed for per-section settings*
 * [ ] Configure a` .metadata-cache` folder and setting?
-* [ ] Configurare an archives file? *// maybe have [...]/.metadata-cache/archive.log*
+* [x] Configurare an archives file? *// maybe have [...]/.metadata-cache/archive.log*
 * [x] Enable email
 * [x] Ensure email gets config param and loads settings for email addrs and ports
 '''
@@ -36,15 +36,14 @@ INI_FILE_SETTINGS_URLS_OPT = 'urls'
 SAVER_SETTINGS = {
     # Directory settings
     'dir.root': 'x:/sicktube',
-    'dir.extractor.prefix': False,
-    'dir.extractor.postfix': False,
-    ##'dir.metadata.name': '.metadata',
+    'dir.video.author': True,
+    'dir.metadata.name': '.metadata',
     ##'dir.archive.name': None,
 
     # File settings
     'file.template.name': youtube_dl.DEFAULT_OUTTMPL,
-    ##'file.archive.name': 'archive.log',
-    ##'file.archive.global': True,
+    'file.archive.name': 'archive.log',
+    'file.archive.global': True,
     ##'file.metadata.cache.prefer': True,
     ##'file.metadata.cache.force-rebuild': False,
 
@@ -193,8 +192,12 @@ The most commonly used %(prog)s commands are:
         return ytsv
 
     @staticmethod
-    def GetSectionOptions(optionsDict, section):
+    def GetSectionOptions(optionsDict, section=None):
         sectionOptions = {}
+        # Default to global section if no section specified
+        if section is None:
+            section = INI_FILE_SETTINGS_SECTION
+
         if section not in optionsDict:
             return sectionOptions
 
@@ -229,6 +232,14 @@ The most commonly used %(prog)s commands are:
         except:
             return None
 
+    @staticmethod
+    def ResolveTemplateWithDict(template, dictionary):
+        return template % dictionary
+
+    @staticmethod
+    def IdFromFilename(filename):
+        print filename
+        return filename
 
     # Object methods
     def SetSettings(self, settings):
@@ -284,17 +295,22 @@ The most commonly used %(prog)s commands are:
         return parsedOptions
 
     def DetermineOutputDir(self, section):
-        prefixDir = ('%(extractor_key)s/' if 'dir.extractor.prefix' in self.settings and self.settings['dir.extractor.prefix'] else '')
-        postfixDir = ('/%(extractor_key)s' if 'dir.extractor.postfix' in self.settings and self.settings['dir.extractor.postfix'] else '')
-        if section == 'Misc':
-            return '{0}/{1}{2}{3}/'.format(self.settings['dir.root'], prefixDir, section, postfixDir)
-        return '{0}/{1}{2}{3}/%(uploader)s/'.format(self.settings['dir.root'], prefixDir, section, postfixDir)
+        settings = self.GetSectionOptions(section)
+        if settings['dir.video.author']:
+            return '{0}/{1}/%(uploader)s/'.format(settings['dir.root'], section)
+        return '{0}/{1}/'.format(settings['dir.root'], section)
 
     def GetFullOutputTemplate(self, section):
-        return '{0}{1}'.format(self.DetermineOutputDir(section), self.settings['file.template.name'])
+        settings = self.GetSectionOptions(section)
+        return '{0}{1}'.format(self.DetermineOutputDir(section), settings['file.template.name'])
 
     def GetFullArchiveFilePath(self, section):
-        return '{0}/{1}'.format(self.settings['dir.root'], 'archive.txt')
+        settings = self.GetSectionOptions(section)
+
+        fullPath = settings['dir.root']
+        if not settings['file.archive.global']:
+            fullPath = '{0}/{1}'.format(fullPath, section)
+        return '{0}/{1}'.format(fullPath, settings['file.archive.name'])
 
     def TouchArchiveFile(self, path):
         basedir = os.path.dirname(path)
