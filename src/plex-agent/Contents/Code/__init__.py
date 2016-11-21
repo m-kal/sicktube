@@ -23,14 +23,14 @@ def unicodize(s):
   return filename
 
 def LogMsg(msg):
-  Utils.Log(msg, level=1, source="YoutubeSaver Agent")
+  Utils.Log(msg, level=1, source="Sicktube Agent")
   #print msg
 
 def Start():
   pass
 
-class PlexPersonalMediaAgentMovies(Agent.Movies):
-  name = 'YoutubeSaverAgent'
+class SicktubeAgentMovies(Agent.Movies):
+  name = 'Sicktube Agent'
   languages = Locale.Language.All()
   primary_provider = True
   accepts_from = ['com.plexapp.agents.localmedia']
@@ -73,7 +73,7 @@ class PlexPersonalMediaAgentMovies(Agent.Movies):
             metadata.summary = "{0}".format(downloadInfo['description'])
 
         if not len(metadata.summary):
-            metadata.summary = "Imported from Plex.YoutubeSaverAgent"
+            metadata.summary = "Imported from Plex.Sicktube"
         # Title
         if 'title' in downloadInfo:
             metadata.title = "{0}".format(downloadInfo['title'])

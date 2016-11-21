@@ -12,14 +12,14 @@ __author__ = "MKal"
 __copyright__ = "Copyright 2016"
 __credits__ = ["MKal"]
 
-__license__ = "GPLv2"
+__license__ = "GPLv3"
 __version__ = "1.0"
 __maintainer__ = "MKal"
 __email__ = ""
 
 def LogMsg(msg):
   print msg
-  #Utils.Log(msg, level=1, source="YoutubeSaver Scanner")
+  #Utils.Log(msg, level=1, source="Sicktube Scanner")
 
 def unicodize(s):
   filename = s
@@ -33,7 +33,7 @@ def unicodize(s):
 def Scan(path, files, mediaList, subdirs):
   # Scan for video files.
   VideoFiles.Scan(path, files, mediaList, subdirs)
-  LogMsg("YoutubeSaverScanner.VideoFiles.Scan({0}, {1}, {2}, {3})".format(path, files, mediaList, subdirs))
+  LogMsg("SicktubeScanner.VideoFiles.Scan({0}, {1}, {2}, {3})".format(path, files, mediaList, subdirs))
 
   for mediaFile in files:
     (file, ext) = os.path.splitext(mediaFile)
@@ -56,10 +56,6 @@ def Scan(path, files, mediaList, subdirs):
         # Source URL
         if 'webpage_url' in downloadInfo:
             movie.source = "{0}".format(downloadInfo['webpage_url'])
-        # Title
-        #if 'title' in downloadInfo:
-            #LogMsg("YoutubeSaver TITLE: {0} | {1}".format(movie.name, downloadInfo['title']))
-            #movie.name = 'ScannerJson: ' + downloadInfo['title']
         # Website/Movie ID
         if 'id' in downloadInfo:
             movie.guid = "{0}".format(downloadInfo['id'])

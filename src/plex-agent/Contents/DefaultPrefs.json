@@ -1,5 +1,11 @@
 [
   {
+    "id": "config.fullpatht",
+    "label": "Full file system path to the configuration file for Sicktube used to generate the directory",
+    "type": "text",
+    "default": "c:/sicktube/settings.cfg"
+  },
+  {
     "id": "cache.prefer",
     "label": "Attempt to use local metadata cache files (*.info.json) to expedite metadata import",
     "type": "bool",
