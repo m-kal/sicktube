@@ -8,6 +8,7 @@
 
 The main command for Sicktube is `run`, which will load the appropriate config file and process all sections and all urls.
 
+    sicktube run -h
     usage: sicktube.py [-h] [--config CONFIG]
 
     Process urls from configuration files
