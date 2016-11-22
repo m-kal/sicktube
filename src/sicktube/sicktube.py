@@ -8,6 +8,7 @@ import os
 import ConfigParser
 import argparse
 import json
+import shutil
 from pprint import pprint
 
 import smtplib
@@ -21,7 +22,7 @@ TODO:
 * [x] Add config dump cli method
 * [ ] Video file rename changes may cause issue looking up `.info.json` files *// can make this a hard-no*
 * [ ] Instantiate a video-saver at PlexAgent initialization/Start() *// needed for per-section settings*
-* [ ] Configure a` .metadata-cache` folder and setting?
+* [x] Configure a` .metadata-cache` folder and setting?
 * [x] Configurare an archives file? *// maybe have [...]/.metadata-cache/archive.log*
 * [x] Enable email
 * [x] Ensure email gets config param and loads settings for email addrs and ports
@@ -31,6 +32,7 @@ TODO:
 INI_FILE_SETTINGS_FILENAME = 'settings.cfg'
 INI_FILE_SETTINGS_SECTION  = '_global'
 INI_FILE_SETTINGS_URLS_OPT = 'urls'
+INI_SETTINGS_URLS_OPT = '_' + INI_FILE_SETTINGS_URLS_OPT
 
 # Create Sicktube settings
 SAVER_SETTINGS = {
@@ -43,12 +45,12 @@ SAVER_SETTINGS = {
     # File settings
     'file.template.name': youtube_dl.DEFAULT_OUTTMPL,
     'file.archive.name': 'archive.log',
-    'file.archive.global': True,
+    'file.archive.global': False,
     ##'file.metadata.cache.prefer': True,
     ##'file.metadata.cache.force-rebuild': False,
 
     # Email server configuratiton
-    'email.enable': False,
+    'email.enable': True,
     'email.server': 'localhost',
     'email.port': 25
 }
@@ -72,7 +74,6 @@ class Sicktube:
     Management and execution for browsing the internet
     in a similar manner to existing browsing history
     """
-    sectionUrlDict = {}
     youtubeDl = None
     ytdlSettings = {}
     settings = {}
@@ -80,7 +81,8 @@ class Sicktube:
     commands = {
         'config': 'Dumps/prints the configuration file',
         'email': 'Email yourself a test message to check if the email options are configured correctly',
-        'metadata': 'Dumps/prints metadata for a url, useful for testing'
+        'metadata': 'Dumps/prints metadata for a url, useful for testing',
+        'run': 'Process urls from configuration files'
     }
     # program consts
     PROG_NAME = 'Sicktube'
@@ -110,6 +112,25 @@ The most commonly used %(prog)s commands are:
         getattr( self, args.command )( )
 
     # First-Order CLI commands
+    def run(self):
+        parser = argparse.ArgumentParser( description = self.commands['run'],
+                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+        parser.add_argument( '--config', action = 'store', help = 'Location of the settings configuration file' )
+        args = parser.parse_args( sys.argv[ 2: ] )
+
+        # Parse the correct file
+        if args.config is not None:
+            configs = self.ParseConfig(filename=args.config)
+        else:
+            configs = self.ParseConfig()
+
+        # Set everything up
+        self.SetSettings(configs)
+        self.SetYoutubeDlSettings(YOUTUBEDL_SETTINGS)
+
+        # Do the processing and downloads
+        self.Download()
+
     def config(self):
         parser = argparse.ArgumentParser( description = self.commands['config'],
                                           formatter_class = argparse.ArgumentDefaultsHelpFormatter)
@@ -185,11 +206,13 @@ The most commonly used %(prog)s commands are:
             return None
 
         ytsv = Sicktube()
-        ytsv.SetSettings(settings)
-        ytsv.SetYoutubeDlSettings(ytdlSettings)
-        ytsv.sectionUrlDict = ytsv.ParseConfig(filename)
+        ytsv.SetSettings(ytsv.ParseConfig(filename))
+        ytsv.SetYoutubeDlSettings(ytdlSettings) # TODO: fix
 
         return ytsv
+
+    def GetSettingSectionOptions(self, section=None):
+        return self.GetSectionOptions(self.settings, section)
 
     @staticmethod
     def GetSectionOptions(optionsDict, section=None):
@@ -276,13 +299,12 @@ The most commonly used %(prog)s commands are:
             if section == INI_FILE_SETTINGS_SECTION:
                 continue
 
-            urlOptionKey = '_{0}'.format(INI_FILE_SETTINGS_URLS_OPT)
-            sectionOptions = { urlOptionKey: [] }
+            sectionOptions = { INI_SETTINGS_URLS_OPT: [] }
             for option in config.options(section):
                 optionVal = config.get(section, option)
                 if option == INI_FILE_SETTINGS_URLS_OPT:
                     urlList = [s.strip() for s in optionVal.splitlines()]
-                    sectionOptions[urlOptionKey] = urlList
+                    sectionOptions[INI_SETTINGS_URLS_OPT] = urlList
                 else:
                     sectionOptions[option] = optionVal
             parsedOptions[section] = sectionOptions
@@ -290,17 +312,17 @@ The most commonly used %(prog)s commands are:
         return parsedOptions
 
     def DetermineOutputDir(self, section):
-        settings = self.GetSectionOptions(section)
+        settings = self.GetSettingSectionOptions(section)
         if settings['dir.video.author']:
             return '{0}/{1}/%(uploader)s/'.format(settings['dir.root'], section)
         return '{0}/{1}/'.format(settings['dir.root'], section)
 
     def GetFullOutputTemplate(self, section):
-        settings = self.GetSectionOptions(section)
+        settings = self.GetSettingSectionOptions(section)
         return '{0}{1}'.format(self.DetermineOutputDir(section), settings['file.template.name'])
 
     def GetFullArchiveFilePath(self, section):
-        settings = self.GetSectionOptions(section)
+        settings = self.GetSettingSectionOptions(section)
 
         fullPath = settings['dir.root']
         if not settings['file.archive.global']:
@@ -316,7 +338,9 @@ The most commonly used %(prog)s commands are:
                 os.utime(path, None)
 
     def ProcessUrls(self, section, urls, download=False):
-        runSettings = self.ytdlSettings
+        # BUG #4: ProcessUrls uses stale ytdl settings causing config overrides to be ignored
+        #runSettings = self.ytdlSettings
+        runSettings = self.GetSettingSectionOptions(section)
         runSettings['outtmpl'] = self.GetFullOutputTemplate(section)
         runSettings['download_archive'] = self.GetFullArchiveFilePath(section)
         self.TouchArchiveFile(runSettings['download_archive'])
@@ -325,19 +349,82 @@ The most commonly used %(prog)s commands are:
             runSettings['simulate'] = False
         self.SetYoutubeDlSettings(runSettings)
         for url in urls:
-            self.ProcessUrl(url)
+            self.ProcessUrl(url, section)
 
-    def ProcessUrl(self, url):
+    def ProcessUrl(self, url, section):
         resDict = self.youtubeDl.extract_info(url=url, download=False)
         if 'entries' not in resDict:
             self.youtubeDl.process_info(resDict)
             self.printUresDict(self.youtubeDl.prepare_filename(resDict))
+            self.CleanupPostProcessUrl(resDict, section)
         else:
             for entry in resDict['entries']:
                 self.youtubeDl.process_info(entry)
                 self.printUresDict(self.youtubeDl.prepare_filename(entry))
+                self.CleanupPostProcessUrl(entry, section)
+
+    def CleanupPostProcessUrl(self, resDict, section):
+        # Move any metadata files if needed to subdirs
+        settings = self.GetSettingSectionOptions(section)
+        # If there is a metadata dir to move .info.json files to, do that now
+        if settings['dir.metadata.name'] is None or not len(settings['dir.metadata.name']):
+            return
+
+        # Get the base path and append metadata dir name
+        if ('_filename' in resDict) and (len(resDict['_filename'])):
+            fileFullPath = resDict['_filename']
+        else:
+            # If there is no _filename but there is an id, then it's likely the download was skipped
+            # and the original metadata was returned, so we can attempt to use a resolved filename in the current dir
+            # BUG && TODO
+            # File was probably already downloaded and we're getting the extracted info
+            # from a alive query for the URL, so in the future we can,
+            #
+            # 1. [bad] intelligently guess browser area and guess the filename with resolved filename
+            # 2. [ok] only do a clean-up per section and walk dirs for 'dir.metadata.name' and '.info.json'
+            #
+            # Regardless, the root cause is that the ie_info dict (info.json) is written before the manual
+            # modifications to the dict get updated with MKV extension and filename updating. Updating the info.json
+            # means Sicktube will rely on modified info.jsons rather than
+            print "BUG && TODO"
+            outputDir = self.ResolveTemplateWithDict(self.DetermineOutputDir(section), resDict)
+            bestGuessFilename = self.ResolveTemplateWithDict(settings['file.template.name'], resDict)
+            fileFullPath = os.path.join(outputDir, bestGuessFilename)
+
+        # Determine file dir, then the metadata dir
+        fileDir = os.path.dirname(fileFullPath)
+        fileName = os.path.basename(fileFullPath)
+        infoJsonFile = os.path.splitext(fileName)[0] + '.info.json'
+
+        # Determine source and destination .info.json files
+        src = os.path.join(fileDir, infoJsonFile)
+        metadataDir = os.path.join(fileDir, settings['dir.metadata.name'])
+        dst = os.path.join(metadataDir, infoJsonFile)
+
+        # Can't move a metadata file that doesn't exist
+        if not os.path.exists(src):
+            if os.path.exists(dst):
+                # Nothing to do, file already moved appropriately
+                return
+            print "Can't find {0}".format(src)
+            return
+
+        if not os.path.exists(metadataDir):
+            print 'Creating metadatadir: {0}'.format(metadataDir)
+            try:
+                os.makedirs(metadataDir)
+            except OSError, err:
+                print "OSError"
+                pprint(err)
+                pass
+
+        # Metadata dir exists and the info json file is known, attempt Move
+        # print 'Moving info.json: [{0}]{1} -> [{2}]{3}'.format(os.path.exists(src), src, os.path.exists(dst), dst)
+        shutil.move(src, dst)
 
     def printUresDict(self, saveName):
+        # BUG: mp4 vs mkv issues based on format for download
+        # May need to change ext in info json, or rather add _ext
         exists = os.path.exists(saveName)
         if exists:
             self.runStats['old'] += 1
@@ -348,19 +435,31 @@ The most commonly used %(prog)s commands are:
 
     def DryRun(self):
         self.runStats = { 'new': 0, 'old': 0 }
-        for section in self.sectionUrlDict:
-            urls = self.sectionUrlDict[section]
+        for section in self.settings:
+            settings = self.GetSettingSectionOptions(section)
+            if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
+                continue
+            urls = settings[INI_SETTINGS_URLS_OPT]
             self.ProcessUrls(section, urls, download=False)
 
     def Download(self):
         self.runStats = { 'new': 0, 'old': 0 }
-        for section in self.sectionUrlDict:
-            urls = self.sectionUrlDict[section]
+        for section in self.settings:
+            # print self.settings[section]
+            settings = self.GetSettingSectionOptions(section)
+            # print settings
+            if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
+                continue
+
+            urls = settings[INI_SETTINGS_URLS_OPT]
             self.ProcessUrls(section, urls, download=True)
 
     def DumpUrls(self):
-        for section in self.sectionUrlDict:
-            urls = self.sectionUrlDict[section]
+        for section in self.settings:
+            settings = self.GetSettingSectionOptions(section)
+            if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
+                continue
+            urls = settings[INI_SETTINGS_URLS_OPT]
             print '[{0}] = {1}'.format(section, urls)
 
 # main()
