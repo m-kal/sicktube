@@ -59,8 +59,19 @@ class SicktubeAgentMovies(Agent.Movies):
     try: title = os.path.splitext(os.path.basename(filename))[0]
     except: title = media.title
     ## Is there a .info.json file indicating we've used our scanner?
-    (file, ext) = os.path.splitext(filename)
-    infoJsonFile = file + '.info.json'
+
+    fDir = os.path.split(filename)[0]
+    fName = os.path.basename(filename)
+    (baseFileName, ext) = os.path.splitext(fName)
+    metadataDir = os.path.join(fDir, '.metadata')
+    LogMsg("metadataDir: {0}".format(metadataDir))
+
+    if os.path.exists(metadataDir):
+        fDir = metadataDir
+
+    infoJsonFile = os.path.join(fDir, baseFileName + '.info.json')
+
+    metadata.title = "NoJson - {0}".format(metadataDir)
     if os.path.exists(infoJsonFile):
         downloadInfo = json.load(io.open(infoJsonFile))
         # Ratings are based out of 10 but usually average_rating is out of 5
