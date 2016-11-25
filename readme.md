@@ -80,15 +80,22 @@ The configuration files and settings are hierarchically structured with from glo
 
 Default configuration preferences can be set in the main module source. Each section declared in `settings.cfg` (or specified with the `--config` CLI arg) can apply sections-specific settings.
 
-### Sicktub Settings
+### Sicktube Settings
 
 | Settings ID | Default Value | Description |
 |:--|:--|:--|
-| cache-metadata | True | Downloads `.info.json` files into a `.metadata-cache` subfolder |
-| dir.root | A | B |
-| file.template.name | youtube_dl.DEFAULT_OUTTMPL | `<download-dir>/<output-template>` |
-| dir.extractor.prefix | False | Puts the extractor before the video section, `[...]/<extractor>/[section]/[...]` |
-| dir.extractor.postfix | False | Puts the extractor after the video section, `[...]/[section]/<extractor>/[...]` |
+| sys.repeat.enable | `False` | Repeat cfg processing and downloads after finishing |
+| sys.repeat.delay | `900` | Time, in seconds, to wait before repeating processing and downloading |
+| dir.root | `x:/sicktube` | The top-level root dir for the output folders |
+| dir.video.author | `True` | If `true`, prefix output directories with the uploader/author of the video |
+| dir.metadata.cache-enable | `True` | Downloads `.info.json` files into a `.metadata` subfolder |
+| dir.metadata.name | `.metadata` | Name of the `.metadata` subfolder |
+| file.template.name | `%(title)s-%(id)s.%(ext)s` | Output filename template, string substitution supported |
+| file.archive.name | `archive.log` | Keeps the record of all videos downloaded to prevent extra lookup attempts |
+| file.archive.global | `False` | If `true`, places the `archive.log` at the root rather than individual `archive.log`s for each section |
+| email.enable | `True` | Enables emailing post processing |
+| email.server | `localhost` | Server for emailing |
+| email.port | `25` | Server port for emailing |
 
 ### Plex Metadata Agent Settings (DefaultPrefs.json)
 
@@ -96,9 +103,7 @@ The Plex metadata agent has several preferences for importing data into the Plex
 
 | Settings ID | Default Value | Description |
 |:--|:--|:--|
-| config.fullpath | `c:/sicktube/settings.cfg` | Full file system path to the configuration file for Sicktube used to generate the directory |
-| file.metadata.cache.prefer | True | Attempt to use local metadata cache files (`*.info.json`) to expedite metadata import |
-| file.metadata.cache.force-rebuild | False | Rebuilds missing metadata cache files if it is missing |
+| T | B | A |
 
 ### Youtube-DL Settings
 

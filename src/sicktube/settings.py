@@ -29,6 +29,11 @@ class Setting(object):
     def Defaults():
         k = Setting.Keys()
         return {
+            # System settings
+            k.SYS_REPEAT_ENABLE: False,
+            k.SYS_REPEAT_DELAY: 900,
+
+            # Directory settings
             k.DIR_ROOT: 'x:/sicktube',
             k.DIR_VIDEO_AUTHOR: True,
             k.DIR_METADATA_CACHE_ENABLE: True,
@@ -52,6 +57,15 @@ class Setting(object):
         @staticmethod
         def _keys():
             return [x for x, y in Setting.Keys.__dict__.items() if not x.startswith('_')]
+
+        '''System Keys'''
+        @constant
+        def SYS_REPEAT_ENABLE(self=None):
+            return 'sys.repeat.enable'
+
+        @constant
+        def SYS_REPEAT_DELAY(self=None):
+            return 'sys.repeat.delay'
 
         '''Directory Keys'''
         @constant

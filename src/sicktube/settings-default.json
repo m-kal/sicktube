@@ -1,4 +1,6 @@
 {
+    "sys.repeat.enable": false,
+    "sys.repeat.delay": 900,
     "dir.root": "x:/sicktube",
     "dir.video.author": true,
     "dir.metadata.cache-enable": true,

@@ -9,6 +9,7 @@ import ConfigParser
 import argparse
 import json
 import shutil
+import time
 from pprint import pprint
 
 import smtplib
@@ -21,7 +22,7 @@ TODO:
 * [x] Add metadata test function
 * [x] Add url-to-metadata static method to get metadata from `webpage_url`
 * [x] Add config dump cli method
-* [ ] Video file rename changes may cause issue looking up `.info.json` files *// can make this a hard-no*
+* [~] Video file rename changes may cause issue looking up `.info.json` files *// can make this a hard-no*
 * [ ] Instantiate a video-saver at PlexAgent initialization/Start() *// needed for per-section settings*
 * [x] Configure a` .metadata-cache` folder and setting?
 * [x] Configurare an archives file? *// maybe have [...]/.metadata-cache/archive.log*
@@ -209,7 +210,7 @@ class Sicktube:
             for option in config.options(section):
                 optionVal = config.get(section, option)
                 if option == INI_FILE_SETTINGS_URLS_OPT:
-                    urlList = [s.strip() for s in optionVal.splitlines() if not s.startswith('#')]
+                    urlList = [s.strip() for s in optionVal.splitlines() if not s.startswith('#') and not s.startswith(';')]
                     sectionOptions[INI_SETTINGS_URLS_OPT] = urlList
                 else:
                     sectionOptions[option] = optionVal
@@ -375,21 +376,39 @@ class Sicktube:
 # First-Order CLI commands
 def run(st):
     parser = argparse.ArgumentParser(description=commands['run'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--repeat', action='store_true', help='Location of the settings configuration file')
+    parser.add_argument('--delay', action='store', help='Delay (in seconds) between repeating configuration processing/downloading')
+    parser.add_argument('--dry', action='store_true', help='Dry run, do not download anything')
     parser.add_argument('--config', action='store', help='Location of the settings configuration file')
     args = parser.parse_args(sys.argv[2:])
 
-    # Parse the correct file
-    if args.config is not None:
-        configs = st.ParseConfigFile(filename=args.config)
-    else:
-        configs = st.ParseConfigFile()
+    while True:
+        # Parse the correct file
+        if args.config is not None:
+            configs = st.ParseConfigFile(filename=args.config)
+        else:
+            configs = st.ParseConfigFile()
 
-    # Set everything up
-    st.SetSettings(configs)
-    st.SetYoutubeDlSettings(YOUTUBEDL_SETTINGS)
+        if args.repeat:
+            configs[INI_FILE_SETTINGS_SECTION][Sicktube.SETTING_KEYS.SYS_REPEAT_ENABLE] = args.repeat
+            if args.delay is not None:
+                configs[INI_FILE_SETTINGS_SECTION][Sicktube.SETTING_KEYS.SYS_REPEAT_DELAY] = float(args.delay)
 
-    # Do the processing and downloads
-    st.Download()
+        # Set everything up
+        st.SetSettings(configs)
+        st.SetYoutubeDlSettings(YOUTUBEDL_SETTINGS)
+
+        # Do the processing and downloads
+        st.Download()
+
+        # If repeat is not enabled, end now
+        if not st.GetSettingSectionOptions()[Sicktube.SETTING_KEYS.SYS_REPEAT_ENABLE]:
+            return
+
+        # Repeat not enabled, so wait for the appropriate duration
+        repeatDelay = st.GetSettingSectionOptions()[Sicktube.SETTING_KEYS.SYS_REPEAT_DELAY]
+        print "Waiting {0} seconds before next iteration".format(repeatDelay)
+        time.sleep(repeatDelay)
 
 
 def config(st):
