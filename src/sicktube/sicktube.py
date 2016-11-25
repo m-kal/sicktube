@@ -13,7 +13,7 @@ from pprint import pprint
 
 import smtplib
 from email.mime.text import MIMEText
-
+import sicktube
 '''
 TODO:
 * [ ] Add missing youtube metadata
@@ -69,6 +69,15 @@ YOUTUBEDL_SETTINGS = {
     'ignoreerrors':     True
 }
 
+commands = {
+    'config': 'Dumps/prints the configuration file',
+    'email': 'Email yourself a test message to check if the email options are configured correctly',
+    'metadata': 'Dumps/prints metadata for a url, useful for testing',
+    'run': 'Process urls from configuration files'
+}
+# program consts
+PROG_NAME = 'Sicktube'
+
 class Sicktube:
     """
     Management and execution for browsing the internet
@@ -78,125 +87,8 @@ class Sicktube:
     ytdlSettings = {}
     settings = {}
     runStats = { 'new': 0, 'old': 0 }
-    commands = {
-        'config': 'Dumps/prints the configuration file',
-        'email': 'Email yourself a test message to check if the email options are configured correctly',
-        'metadata': 'Dumps/prints metadata for a url, useful for testing',
-        'run': 'Process urls from configuration files'
-    }
     # program consts
     PROG_NAME = 'Sicktube'
-
-    def __init__(self):
-
-        """
-        Do argument setup / description, and execute subcommand
-        """
-        cmdStr = ''
-        for cmd, desc in sorted(self.commands.items()):
-            cmdStr += '  %s%s\n' % (cmd.ljust(10, ' '), desc)
-
-        parser = argparse.ArgumentParser(prog = self.PROG_NAME, description = '', usage = '''%(prog)s <command> [<args>]
-
-The most commonly used %(prog)s commands are:
-
-''' + cmdStr)
-
-        parser.add_argument('command', help = 'Subcommand to run')
-        args = parser.parse_args(sys.argv[1:2])
-        if (not hasattr(self, args.command)) or (args.command not in self.commands.keys()):
-            print('Unrecognized command')
-            parser.print_help()
-            exit(1)
-        # use CLI command == function name, use it
-        getattr( self, args.command )( )
-
-    # First-Order CLI commands
-    def run(self):
-        parser = argparse.ArgumentParser( description = self.commands['run'],
-                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter)
-        parser.add_argument( '--config', action = 'store', help = 'Location of the settings configuration file' )
-        args = parser.parse_args( sys.argv[ 2: ] )
-
-        # Parse the correct file
-        if args.config is not None:
-            configs = self.ParseConfig(filename=args.config)
-        else:
-            configs = self.ParseConfig()
-
-        # Set everything up
-        self.SetSettings(configs)
-        self.SetYoutubeDlSettings(YOUTUBEDL_SETTINGS)
-
-        # Do the processing and downloads
-        self.Download()
-
-    def config(self):
-        parser = argparse.ArgumentParser( description = self.commands['config'],
-                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter)
-        parser.add_argument( '--config', action = 'store', help = 'Location of the settings configuration file' )
-        args = parser.parse_args( sys.argv[ 2: ] )
-
-        # Parse the correct file
-        if args.config is not None:
-            configs = self.ParseConfig(filename=args.config)
-        else:
-            configs = self.ParseConfig()
-
-        # Pretty print each config
-        for k in configs:
-            print '\nSection Config For: {0}\n'.format(k)
-            pprint(self.GetSectionOptions(configs, k))
-
-    def email(self):
-        parser = argparse.ArgumentParser( description = self.commands['email'],
-                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter)
-        parser.add_argument( '--config', action = 'store', help = 'Location of the settings configuration file' )
-        parser.add_argument( '--from-addr', action = 'store', help = 'Test sender\'s email address', default='admin@localhost' )
-        parser.add_argument( '--to-addr', action = 'store', help = 'Test recipient\'s email address', default='admin@localhost' )
-        parser.add_argument( '--msg', action = 'store', help = 'Test email message', default='This is a test message sent for {0}'.format(self.PROG_NAME) )
-        parser.add_argument( '--subject', action = 'store', help = 'Test email message subject', default='[{0}] Test configuration email'.format(self.PROG_NAME) )
-        args = parser.parse_args( sys.argv[ 2: ] )
-
-        # Parse the correct file
-        if args.config is not None:
-            configs = self.ParseConfig(filename=args.config)
-        else:
-            configs = self.ParseConfig()
-
-        msg = MIMEText(args.msg)
-        msg['Subject'] = args.subject
-        s = smtplib.SMTP(configs[INI_FILE_SETTINGS_SECTION]['email.server'], configs[INI_FILE_SETTINGS_SECTION]['email.port'])
-        msg['From'] = args.from_addr
-        msg['To'] = args.to_addr
-        s.sendmail(msg['From'], msg['To'], msg.as_string())
-        s.quit()
-        print 'Email message sent from `{0}` to `{1}` with a subject of `{2}`'.format(args.from_addr, args.to_addr, args.subject)
-        print 'Email Feature Status: {0}'.format('Enabled' if configs[INI_FILE_SETTINGS_SECTION]['email.enable'] else 'Disabled')
-
-    def metadata(self):
-        parser = argparse.ArgumentParser( description = self.commands['metadata'],
-                                          formatter_class = argparse.ArgumentDefaultsHelpFormatter )
-        parser.add_argument( 'url', action = 'store', help = 'URL to extract metadata for' )
-        parser.add_argument( '--save-as', action = 'store', help = 'Save the metadata to a file rather than printing to stdout' )
-        parser.add_argument( '--config', action = 'store', help = 'Location of the settings configuration file' )
-        args = parser.parse_args( sys.argv[ 2: ] )
-
-        (metadataDict, ytld) = self.MetadataFromUrl(args.url)
-        if args.save_as is None:
-            # Print to screen because no save file was set
-            pprint(metadataDict)
-        else:
-            absPath = os.path.abspath(args.save_as)
-            if not os.path.exists(absPath):
-                print '{0} doesnt exist yet'.format(absPath)
-
-            # Dump the dict to file through the json lib rather than a print-style dump
-            f = open(absPath, 'w')
-            json.dump(metadataDict, f)
-            f.close()
-            # Use the youtubeDL() instance from MetadataFromUrl to obtain any extra information
-            print '{0} written with {1} bytes of data for video `{2}`'.format(args.save_as, os.path.getsize(absPath), ytld._make_archive_id(metadataDict))
 
     # Static methods
     @staticmethod
@@ -206,7 +98,7 @@ The most commonly used %(prog)s commands are:
             return None
 
         ytsv = Sicktube()
-        ytsv.SetSettings(ytsv.ParseConfig(filename))
+        ytsv.SetSettings(ytsv.ParseConfigFile(filename))
         ytsv.SetYoutubeDlSettings(ytdlSettings) # TODO: fix
 
         return ytsv
@@ -257,6 +149,7 @@ The most commonly used %(prog)s commands are:
 
     @staticmethod
     def ResolveTemplateWithDict(template, dictionary):
+        # Todo
         return template % dictionary
 
     # Object methods
@@ -267,7 +160,7 @@ The most commonly used %(prog)s commands are:
         self.ytdlSettings = ytdlSettings
         self.youtubeDl = youtube_dl.YoutubeDL(self.ytdlSettings)
 
-    def ParseConfig(self, filename=INI_FILE_SETTINGS_FILENAME):
+    def ParseConfigFile(self, filename=INI_FILE_SETTINGS_FILENAME):
         '''Parses a configuration file and returns a merged set of options on a per-section basis'''
 
         # The dictionary structure is { INI_FILE_SETTINGS_SECTION: [], '<section>': [] }
@@ -462,6 +355,130 @@ The most commonly used %(prog)s commands are:
             urls = settings[INI_SETTINGS_URLS_OPT]
             print '[{0}] = {1}'.format(section, urls)
 
+
+# First-Order CLI commands
+def run(st):
+    parser = argparse.ArgumentParser(description=commands['run'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    args = parser.parse_args(sys.argv[2:])
+
+    # Parse the correct file
+    if args.config is not None:
+        configs = st.ParseConfigFile(filename=args.config)
+    else:
+        configs = st.ParseConfigFile()
+
+    # Set everything up
+    st.SetSettings(configs)
+    st.SetYoutubeDlSettings(YOUTUBEDL_SETTINGS)
+
+    # Do the processing and downloads
+    st.Download()
+
+
+def config(st):
+    parser = argparse.ArgumentParser(description=commands['config'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    args = parser.parse_args(sys.argv[2:])
+
+    # Parse the correct file
+    if args.config is not None:
+        configs = st.ParseConfigFile(filename=args.config)
+    else:
+        configs = st.ParseConfigFile()
+
+    # Pretty print each config
+    for k in configs:
+        print '\nSection Config For: {0}\n'.format(k)
+        pprint(st.GetSectionOptions(configs, k))
+
+
+def email(st):
+    parser = argparse.ArgumentParser(description=commands['email'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    parser.add_argument('--from-addr', action='store', help='Test sender\'s email address', default='admin@localhost')
+    parser.add_argument('--to-addr', action='store', help='Test recipient\'s email address', default='admin@localhost')
+    parser.add_argument('--msg', action='store', help='Test email message',
+                        default='This is a test message sent for {0}'.format(st.PROG_NAME))
+    parser.add_argument('--subject', action='store', help='Test email message subject',
+                        default='[{0}] Test configuration email'.format(st.PROG_NAME))
+    args = parser.parse_args(sys.argv[2:])
+
+    # Parse the correct file
+    if args.config is not None:
+        configs = st.ParseConfigFile(filename=args.config)
+    else:
+        configs = st.ParseConfigFile()
+
+    msg = MIMEText(args.msg)
+    msg['Subject'] = args.subject
+    s = smtplib.SMTP(configs[INI_FILE_SETTINGS_SECTION]['email.server'],
+                     configs[INI_FILE_SETTINGS_SECTION]['email.port'])
+    msg['From'] = args.from_addr
+    msg['To'] = args.to_addr
+    s.sendmail(msg['From'], msg['To'], msg.as_string())
+    s.quit()
+    print 'Email message sent from `{0}` to `{1}` with a subject of `{2}`'.format(args.from_addr, args.to_addr,
+                                                                                  args.subject)
+    print 'Email Feature Status: {0}'.format(
+        'Enabled' if configs[INI_FILE_SETTINGS_SECTION]['email.enable'] else 'Disabled')
+
+
+def metadata(st):
+    parser = argparse.ArgumentParser(description=commands['metadata'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('url', action='store', help='URL to extract metadata for')
+    parser.add_argument('--save-as', action='store', help='Save the metadata to a file rather than printing to stdout')
+    parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    args = parser.parse_args(sys.argv[2:])
+
+    (metadataDict, ytld) = st.MetadataFromUrl(args.url)
+    if args.save_as is None:
+        # Print to screen because no save file was set
+        pprint(metadataDict)
+    else:
+        absPath = os.path.abspath(args.save_as)
+        if not os.path.exists(absPath):
+            print '{0} doesnt exist yet'.format(absPath)
+
+        # Dump the dict to file through the json lib rather than a print-style dump
+        f = open(absPath, 'w')
+        json.dump(metadataDict, f)
+        f.close()
+        # Use the youtubeDL() instance from MetadataFromUrl to obtain any extra information
+        print '{0} written with {1} bytes of data for video `{2}`'.format(args.save_as,
+                                                                          os.path.getsize(absPath),
+                                                                          ytld._make_archive_id(metadataDict))
+
+
 # main()
 if __name__ == '__main__':
-    ytsv = Sicktube()
+    print "yo"
+    """
+    Do argument setup / description, and execute subcommand
+    """
+    cmdStr = ''
+    for cmd, desc in sorted(commands.items()):
+        cmdStr += '  %s%s\n' % (cmd.ljust(10, ' '), desc)
+
+    parser = argparse.ArgumentParser(prog=PROG_NAME, description='', usage='''%(prog)s <command> [<args>]
+
+The most commonly used %(prog)s commands are:
+
+''' + cmdStr)
+
+    parser.add_argument('command', help='Subcommand to run')
+    args = parser.parse_args(sys.argv[1:2])
+    if (args.command not in commands.keys()):
+        print('Unrecognized command')
+        parser.print_help()
+        exit(1)
+    # use CLI command == function name, use it
+    st = sicktube.Sicktube()
+    if 'run' == args.command:
+        run(st)
+    elif 'config' == args.command:
+        config(st)
+    elif 'email' == args.command:
+        email(st)
+    elif 'metadata' == args.command:
+        metadata(st)
