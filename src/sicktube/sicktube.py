@@ -135,15 +135,37 @@ class Sicktube:
 
     @staticmethod
     def ResolveTemplateWithDict(template, dictionary):
-        # Todo
-        return template % dictionary
+        # Todo: make efficient
+        workDict = dictionary.copy()
+        keyCount = len(workDict.keys())
+        attempts = 0
+        templateFailures = 0
+        while True:
+            # Try to resolve the template
+            try:
+                attempts += 1
+                candidate = template % workDict
+                # Return an empty string if we failed to match anything
+                # Note: This section is suspect because of dubious logic.
+                # Note: There should be a way to substitute for string templates
+                # Note: and detect if nothing was matched, but that hasn't been found yet,
+                # Note: so in the interest of time, leave this for now until it causes an issue,
+                # Note: then add to unit tests and refactor this code to do it properly.
+                if (templateFailures > keyCount and templateFailures < attempts and (attempts > (keyCount + templateFailures))):
+                    return ''
+                else:
+                    return candidate
+            except KeyError, e:
+                # On failures use a empty string placeholder
+                workDict[e.message] = ''
+                templateFailures += 1
 
     # Object methods
     def SetSettings(self, settings):
         self.settings = settings.copy()
 
     def SetYoutubeDlSettings(self, ytdlSettings):
-        self.ytdlSettings = ytdlSettings
+        self.ytdlSettings = ytdlSettings.copy()
         self.youtubeDl = youtube_dl.YoutubeDL(self.ytdlSettings)
 
     def ParseConfigFile(self, filename=INI_FILE_SETTINGS_FILENAME):

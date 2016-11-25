@@ -1,5 +1,4 @@
 import unittest
-import sqlite3
 
 import sys
 import os.path
@@ -16,7 +15,12 @@ class SicktubeTestStatics(unittest.TestCase):
         # Average use case
         self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%(id)s.%(ext)s', {'title': 'Test Pass', 'id': 1, 'ext': 'tst'}), 'Test Pass-1.tst')
         # Missing components
-        # self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%(id)s.%(ext)s', {'id': 2, 'ext': 'tst'}), '-2.tst')
+        self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%(id)s.%(ext)s', {'id': 2, 'ext': 'tst'}), '-2.tst')
+        self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%(id)s.%(ext)s', {'ext': 'tst'}), '-.tst')
+        self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%(id)s.%(ext)s', {}), '')
+        self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%%-%(id)s.%(ext)s', {}), '')
+        self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%%-%(id)s.%(ext)s', {'ext': 'tst'}), '-%-.tst')
+        self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%%-%(id)s.%(ext)s', {'id': 2, 'ext': 'tst'}), '-%-2.tst')
 
     def test_FromConfigFile(self):
         print "FromConfigFile"
