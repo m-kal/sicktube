@@ -65,12 +65,16 @@ class Sicktube:
     Management and execution for browsing the internet
     in a similar manner to existing browsing history
     """
+    SETTING_KEYS = settings.Setting.Keys()
     youtubeDl = None
     ytdlSettings = {}
     settings = {}
     runStats = { 'new': 0, 'old': 0 }
     # program consts
     PROG_NAME = 'Sicktube'
+
+    def __init__(self):
+        self.settings = settings.Setting().ConvergedDefaults()
 
     # Static methods
     @staticmethod
@@ -136,7 +140,7 @@ class Sicktube:
 
     # Object methods
     def SetSettings(self, settings):
-        self.settings = settings
+        self.settings = settings.copy()
 
     def SetYoutubeDlSettings(self, ytdlSettings):
         self.ytdlSettings = ytdlSettings
@@ -188,21 +192,21 @@ class Sicktube:
 
     def DetermineOutputDir(self, section):
         settings = self.GetSettingSectionOptions(section)
-        if settings['dir.video.author']:
-            return '{0}/{1}/%(uploader)s/'.format(settings['dir.root'], section)
-        return '{0}/{1}/'.format(settings['dir.root'], section)
+        if settings[self.SETTING_KEYS.DIR_VIDEO_AUTHOR]:
+            return '{0}/{1}/%(uploader)s/'.format(settings[self.SETTING_KEYS.DIR_ROOT], section)
+        return '{0}/{1}/'.format(settings[self.SETTING_KEYS.DIR_ROOT], section)
 
     def GetFullOutputTemplate(self, section):
         settings = self.GetSettingSectionOptions(section)
-        return '{0}{1}'.format(self.DetermineOutputDir(section), settings['file.template.name'])
+        return '{0}{1}'.format(self.DetermineOutputDir(section), settings[self.SETTING_KEYS.FILE_TEMPLATE_NAME])
 
     def GetFullArchiveFilePath(self, section):
         settings = self.GetSettingSectionOptions(section)
 
-        fullPath = settings['dir.root']
-        if not settings['file.archive.global']:
+        fullPath = settings[self.SETTING_KEYS.DIR_ROOT]
+        if not settings[self.SETTING_KEYS.FILE_ARCHIVE_GLOBAL]:
             fullPath = '{0}/{1}'.format(fullPath, section)
-        return '{0}/{1}'.format(fullPath, settings['file.archive.name'])
+        return '{0}/{1}'.format(fullPath, settings[self.SETTING_KEYS.FILE_ARCHIVE_NAME])
 
     def TouchArchiveFile(self, path):
         basedir = os.path.dirname(path)
@@ -242,7 +246,7 @@ class Sicktube:
         # Move any metadata files if needed to subdirs
         settings = self.GetSettingSectionOptions(section)
         # If there is a metadata dir to move .info.json files to, do that now
-        if settings['dir.metadata.name'] is None or not len(settings['dir.metadata.name']):
+        if settings[self.SETTING_KEYS.DIR_METADATA_NAME] is None or not len(settings[self.SETTING_KEYS.DIR_METADATA_NAME]):
             return
 
         # Get the base path and append metadata dir name
@@ -263,7 +267,7 @@ class Sicktube:
             # means Sicktube will rely on modified info.jsons rather than
             print "BUG && TODO"
             outputDir = self.ResolveTemplateWithDict(self.DetermineOutputDir(section), resDict)
-            bestGuessFilename = self.ResolveTemplateWithDict(settings['file.template.name'], resDict)
+            bestGuessFilename = self.ResolveTemplateWithDict(settings[self.SETTING_KEYS.FILE_TEMPLATE_NAME], resDict)
             fileFullPath = os.path.join(outputDir, bestGuessFilename)
 
         # Determine file dir, then the metadata dir
@@ -273,7 +277,7 @@ class Sicktube:
 
         # Determine source and destination .info.json files
         src = os.path.join(fileDir, infoJsonFile)
-        metadataDir = os.path.join(fileDir, settings['dir.metadata.name'])
+        metadataDir = os.path.join(fileDir, settings[self.SETTING_KEYS.DIR_METADATA_NAME])
         dst = os.path.join(metadataDir, infoJsonFile)
 
         # Can't move a metadata file that doesn't exist
@@ -392,8 +396,8 @@ def email(st):
 
     msg = MIMEText(args.msg)
     msg['Subject'] = args.subject
-    s = smtplib.SMTP(configs[INI_FILE_SETTINGS_SECTION]['email.server'],
-                     configs[INI_FILE_SETTINGS_SECTION]['email.port'])
+    s = smtplib.SMTP(configs[INI_FILE_SETTINGS_SECTION][Sicktube.SETTING_KEYS.EMAIL_SERVER],
+                     configs[INI_FILE_SETTINGS_SECTION][Sicktube.SETTING_KEYS.EMAIL_PORT])
     msg['From'] = args.from_addr
     msg['To'] = args.to_addr
     s.sendmail(msg['From'], msg['To'], msg.as_string())
@@ -401,7 +405,7 @@ def email(st):
     print 'Email message sent from `{0}` to `{1}` with a subject of `{2}`'.format(args.from_addr, args.to_addr,
                                                                                   args.subject)
     print 'Email Feature Status: {0}'.format(
-        'Enabled' if configs[INI_FILE_SETTINGS_SECTION]['email.enable'] else 'Disabled')
+        'Enabled' if configs[INI_FILE_SETTINGS_SECTION][Sicktube.SETTING_KEYS.EMAIL_ENABLE] else 'Disabled')
 
 
 def metadata(st):
