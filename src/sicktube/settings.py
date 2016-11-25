@@ -10,6 +10,7 @@ def constant(f):
 
     return property(fget, fset)
 
+
 class Setting(object):
     @staticmethod
     def Filename(self=None):
@@ -35,7 +36,7 @@ class Setting(object):
             ##'dir.archive.name': None,
 
             # File settings
-            k.FILE_TEMPLATE_NAME: u'%(title)s-%(id)s.%(ext)s',
+            k.FILE_TEMPLATE_NAME: '%(title)s-%(id)s.%(ext)s',
             k.FILE_ARCHIVE_NAME: 'archive.log',
             k.FILE_ARCHIVE_GLOBAL: False,
             ##'file.metadata.cache.prefer': True,

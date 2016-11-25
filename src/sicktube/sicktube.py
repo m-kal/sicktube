@@ -327,10 +327,10 @@ class Sicktube:
         shutil.move(src, dst)
 
     def printUresDict(self, saveName):
-        # BUG: mp4 vs mkv issues based on format for download
         # May need to change ext in info json, or rather add _ext
         exists = os.path.exists(saveName)
-        if exists:
+        existsBackup = os.path.exists(saveName.replace('.mkv', '.mp4'))
+        if exists or existsBackup:
             self.runStats['old'] += 1
         else:
             self.runStats['new'] += 1
@@ -461,7 +461,6 @@ def metadata(st):
 
 # main()
 if __name__ == '__main__':
-    print "yo"
     """
     Do argument setup / description, and execute subcommand
     """

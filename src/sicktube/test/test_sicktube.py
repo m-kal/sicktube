@@ -21,6 +21,8 @@ class SicktubeTestStatics(unittest.TestCase):
         self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%%-%(id)s.%(ext)s', {}), '')
         self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%%-%(id)s.%(ext)s', {'ext': 'tst'}), '-%-.tst')
         self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%%-%(id)s.%(ext)s', {'id': 2, 'ext': 'tst'}), '-%-2.tst')
+        # Wrong missing substitutions
+        # self.assertEquals(Sicktube.ResolveTemplateWithDict('%(title)s-%%-%(id)s.%(ext)s', {'txe': 'tst'}), '')
 
     def test_FromConfigFile(self):
         print "FromConfigFile"
