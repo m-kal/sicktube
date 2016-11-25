@@ -14,6 +14,7 @@ from pprint import pprint
 import smtplib
 from email.mime.text import MIMEText
 import sicktube
+import settings
 '''
 TODO:
 * [ ] Add missing youtube metadata
@@ -26,6 +27,8 @@ TODO:
 * [x] Configurare an archives file? *// maybe have [...]/.metadata-cache/archive.log*
 * [x] Enable email
 * [x] Ensure email gets config param and loads settings for email addrs and ports
+* [x] Create a default prefs
+* [x] Load a default prefs
 '''
 
 # Consts
@@ -33,27 +36,6 @@ INI_FILE_SETTINGS_FILENAME = 'settings.cfg'
 INI_FILE_SETTINGS_SECTION  = '_global'
 INI_FILE_SETTINGS_URLS_OPT = 'urls'
 INI_SETTINGS_URLS_OPT = '_' + INI_FILE_SETTINGS_URLS_OPT
-
-# Create Sicktube settings
-SAVER_SETTINGS = {
-    # Directory settings
-    'dir.root': 'x:/sicktube',
-    'dir.video.author': True,
-    'dir.metadata.name': '.metadata',
-    ##'dir.archive.name': None,
-
-    # File settings
-    'file.template.name': youtube_dl.DEFAULT_OUTTMPL,
-    'file.archive.name': 'archive.log',
-    'file.archive.global': False,
-    ##'file.metadata.cache.prefer': True,
-    ##'file.metadata.cache.force-rebuild': False,
-
-    # Email server configuratiton
-    'email.enable': True,
-    'email.server': 'localhost',
-    'email.port': 25
-}
 
 # Create Youtube-DL downloader settings
 YOUTUBEDL_SETTINGS = {
@@ -92,7 +74,7 @@ class Sicktube:
 
     # Static methods
     @staticmethod
-    def FromConfigFile(filename=INI_FILE_SETTINGS_FILENAME, settings=SAVER_SETTINGS, ytdlSettings=YOUTUBEDL_SETTINGS):
+    def FromConfigFile(filename=INI_FILE_SETTINGS_FILENAME, ytdlSettings=YOUTUBEDL_SETTINGS):
         if not os.path.exists(filename):
             print '{0} does not exist.'.format(filename)
             return None
@@ -164,7 +146,7 @@ class Sicktube:
         '''Parses a configuration file and returns a merged set of options on a per-section basis'''
 
         # The dictionary structure is { INI_FILE_SETTINGS_SECTION: [], '<section>': [] }
-        globalOptions = SAVER_SETTINGS.copy()
+        globalOptions = settings.Setting.ConvergedDefaults()
         globalOptions.update(YOUTUBEDL_SETTINGS)
 
         sectionUrlDict = {}
