@@ -71,7 +71,7 @@ class SicktubeAgentMovies(Agent.Movies):
 
     infoJsonFile = os.path.join(fDir, baseFileName + '.info.json')
 
-    metadata.title = "NoJson - {0}".format(metadataDir)
+    metadata.title = "{0}".format(title)
     if os.path.exists(infoJsonFile):
         downloadInfo = json.load(io.open(infoJsonFile))
         # Ratings are based out of 10 but usually average_rating is out of 5

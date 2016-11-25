@@ -179,9 +179,10 @@ class Sicktube:
         configOptions = {}
         # Use a RawConfigParser to disable option name interpolation
         # so as not to conflict with templateing strings for Youtube-DL
-        config = ConfigParser.RawConfigParser(self.settings, allow_no_value=True)
+        config = ConfigParser.RawConfigParser(globalOptions, allow_no_value=True)
         config.read(filename)
 
+        # Process the global options from the config
         overWriteGlobalOpts = {}
         if config.has_section(INI_FILE_SETTINGS_SECTION):
             for section in config.sections():
@@ -192,6 +193,10 @@ class Sicktube:
         for key in overWriteGlobalOpts:
             globalOptions[key] = overWriteGlobalOpts[key]
 
+        # Now piggy-back off ConfigParser allowing defaults,
+        # so pass the global options as defaults for each section.
+        config = ConfigParser.RawConfigParser(globalOptions, allow_no_value=True)
+        config.read(filename)
         parsedOptions = { INI_FILE_SETTINGS_SECTION: globalOptions }
 
         for section in config.sections():
@@ -390,6 +395,7 @@ def run(st):
 def config(st):
     parser = argparse.ArgumentParser(description=commands['config'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    parser.add_argument('--raw', action='store_true', help='Dump the parsed config file in an unstructured manner')
     args = parser.parse_args(sys.argv[2:])
 
     # Parse the correct file
@@ -399,10 +405,24 @@ def config(st):
         configs = st.ParseConfigFile()
 
     # Pretty print each config
-    for k in configs:
-        print '\nSection Config For: {0}\n'.format(k)
-        pprint(st.GetSectionOptions(configs, k))
+    if args.raw:
+        for k in configs:
+            print '\nSection Config For: {0}\n'.format(k)
+            pprint(st.GetSectionOptions(configs, k))
+        return
 
+    for k in configs:
+        print "\n[{0}]\n".format(k) + "{"
+        sectOpt = st.GetSectionOptions(configs, k)
+        globOpt = st.GetSectionOptions(configs)
+        keys=list(sectOpt.keys())
+        keys.sort()
+        for k in keys:
+            if k in globOpt and globOpt[k] == sectOpt[k]:
+                print "  {0: <30} : {1}".format(k, sectOpt[k])
+            else:
+                print "  {0: <30}*: {1}".format(k, sectOpt[k])
+        print "}"
 
 def email(st):
     parser = argparse.ArgumentParser(description=commands['email'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
