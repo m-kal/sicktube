@@ -178,7 +178,7 @@ class Sicktube:
             for option in config.options(section):
                 optionVal = config.get(section, option)
                 if option == INI_FILE_SETTINGS_URLS_OPT:
-                    urlList = [s.strip() for s in optionVal.splitlines()]
+                    urlList = [s.strip() for s in optionVal.splitlines() if not s.startswith('#')]
                     sectionOptions[INI_SETTINGS_URLS_OPT] = urlList
                 else:
                     sectionOptions[option] = optionVal
@@ -380,10 +380,8 @@ def email(st):
     parser.add_argument('--config', action='store', help='Location of the settings configuration file')
     parser.add_argument('--from-addr', action='store', help='Test sender\'s email address', default='admin@localhost')
     parser.add_argument('--to-addr', action='store', help='Test recipient\'s email address', default='admin@localhost')
-    parser.add_argument('--msg', action='store', help='Test email message',
-                        default='This is a test message sent for {0}'.format(st.PROG_NAME))
-    parser.add_argument('--subject', action='store', help='Test email message subject',
-                        default='[{0}] Test configuration email'.format(st.PROG_NAME))
+    parser.add_argument('--msg', action='store', help='Test email message', default='This is a test message sent for {0}'.format(st.PROG_NAME))
+    parser.add_argument('--subject', action='store', help='Test email message subject', default='[{0}] Test configuration email'.format(st.PROG_NAME))
     args = parser.parse_args(sys.argv[2:])
 
     # Parse the correct file
