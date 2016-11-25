@@ -1,6 +1,7 @@
 {
     "dir.root": "x:/sicktube",
     "dir.video.author": true,
+    "dir.metadata.cache-enable": true,
     "dir.metadata.name": ".metadata",
     "file.template.name": "%(title)-%(id)s.%(ext)s",
     "file.archive.name": "archive.log",

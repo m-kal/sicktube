@@ -45,7 +45,7 @@ YOUTUBEDL_SETTINGS = {
     'simulate':         True,                   # Skips downloading the video and the .info.json file
 
     # overwrite any youtube-dl settings that may interfere with expected behavior
-    'writeinfojson':    True,                   # Don't write out the info.json file
+    'writeinfojson':    True,                   # Write out the info.json file for the metadata archive
     'quiet':            False,                  # Don't spam the console with debug info
     'ffmpeg_location':  'c:/ffmpeg/bin',        # Location of FFMPEG
     'ignoreerrors':     True
@@ -244,6 +244,9 @@ class Sicktube:
         runSettings = self.GetSettingSectionOptions(section)
         runSettings['outtmpl'] = self.GetFullOutputTemplate(section)
         runSettings['download_archive'] = self.GetFullArchiveFilePath(section)
+        if runSettings['dir.metadata.cache-enable']:
+            runSettings['writeinfojson'] = True
+
         self.TouchArchiveFile(runSettings['download_archive'])
         if download:
             runSettings['skip_download'] = False

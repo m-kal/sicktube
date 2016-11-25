@@ -30,6 +30,7 @@ class Setting(object):
         return {
             k.DIR_ROOT: 'x:/sicktube',
             k.DIR_VIDEO_AUTHOR: True,
+            k.DIR_METADATA_CACHE_ENABLE: True,
             k.DIR_METADATA_NAME: '.metadata',
             ##'dir.archive.name': None,
 
@@ -61,6 +62,9 @@ class Setting(object):
         @constant
         def DIR_METADATA_NAME(self=None):
             return 'dir.metadata.name'
+        @constant
+        def DIR_METADATA_CACHE_ENABLE(self=None):
+            return 'dir.metadata.cache-enable'
 
         '''File Keys'''
         @constant

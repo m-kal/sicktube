@@ -134,7 +134,7 @@ Youtube-dl settings several defaults set based on expected behavior
 * [x] Add config dump cli method
 * [ ] Video file rename changes may cause issue looking up `.info.json` files *// can make this a hard-no*
 * [ ] Instantiate a video-saver at PlexAgent initialization/Start() *// needed for per-section settings*
-* [ ] Configure a` .metadata-cache` folder and setting?
-* [ ] Configurare an archives file? *// maybe have [...]/.metadata-cache/archive.log*
+* [x] Configure a` .metadata-cache` folder and setting?
+* [x] Configure an archives file? *// maybe have [...]/.metadata-cache/archive.log*
 * [x] Enable email
 * [x] Ensure email gets config param and loads settings for email addrs and ports
