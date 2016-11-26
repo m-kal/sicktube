@@ -24,7 +24,6 @@ def unicodize(s):
 
 def LogMsg(msg):
   Utils.Log(msg, level=1, source="Sicktube Agent")
-  #print msg
 
 def Start():
   pass
@@ -88,5 +87,30 @@ class SicktubeAgentMovies(Agent.Movies):
         # Title
         if 'title' in downloadInfo:
             metadata.title = "{0}".format(downloadInfo['title'])
+
+        # Studio is the uploader
+        if 'uploader' in downloadInfo:
+            metadata.studio = downloadInfo['uploader'].strip()
+
+        # Genres
+        if 'categories' in downloadInfo:
+            # Genres from categories
+            metadata.genres.clear()
+            for cat in downloadInfo['categories']:
+                metadata.genres.add(cat.strip())
+
+        # Taglines
+        if 'playlist_title' in downloadInfo:
+            metadata.tagline = downloadInfo['playlist_title'].strip()
+
+        # Genres from folder detection
+        if 'uploader' in downloadInfo:
+            videoOutputDir = os.path.split(filename)[0]
+            if os.path.basename(videoOutputDir) == downloadInfo['uploader'].strip():
+                section = os.path.basename(os.path.abspath(videoOutputDir + "/../"))
+                pass
+            else:
+                section = os.path.basename(videoOutputDir)
+            metadata.genres.add(section)
 
     metadata.originally_available_at = Datetime.ParseDate(str(date)).date()
