@@ -18,7 +18,7 @@ import sicktube
 import settings
 '''
 TODO:
-* [ ] Add missing youtube metadata
+* [x] Add missing youtube metadata
 * [x] Add metadata test function
 * [x] Add url-to-metadata static method to get metadata from `webpage_url`
 * [x] Add config dump cli method
