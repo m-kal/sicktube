@@ -9,14 +9,19 @@
 The main command for Sicktube is `run`, which will load the appropriate config file and process all sections and all urls.
 
     sicktube run -h
-    usage: sicktube.py [-h] [--config CONFIG]
+    usage: sicktube.py [-h] [--repeat] [--delay DELAY] [--dry] [--config CONFIG]
 
     Process urls from configuration files
-
+    
     optional arguments:
       -h, --help       show this help message and exit
+      --repeat         Location of the settings configuration file (default:
+                       False)
+      --delay DELAY    Delay (in seconds) between repeating configuration
+                       processing/downloading (default: None)
+      --dry            Dry run, do not download anything (default: False)
       --config CONFIG  Location of the settings configuration file (default: None)
-
+  
 **Dump Configuration**
 
 Use the `config` command to print the global and per-section resolved config settings. This is useful to determine if config files are properly overriding global defaults.
