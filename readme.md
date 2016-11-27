@@ -14,13 +14,13 @@ The main command for Sicktube is `run`, which will load the appropriate config f
     Process urls from configuration files
     
     optional arguments:
-      -h, --help       show this help message and exit
-      --repeat         Location of the settings configuration file (default:
-                       False)
-      --delay DELAY    Delay (in seconds) between repeating configuration
-                       processing/downloading (default: None)
-      --dry            Dry run, do not download anything (default: False)
-      --config CONFIG  Location of the settings configuration file (default: None)
+      -h, --help                            show this help message and exit
+    --repeat                                Location of the settings configuration file (default: False)
+      --delay DELAY                         Delay (in seconds) between repeating configuration
+                                            processing/downloading (default: None)
+      --dry                                 Dry run, do not download anything (default: False)
+      --config CONFIG                       Location of the settings configuration file (default: None)
+      --sections SECTIONS [SECTIONS ...]    List of sections to process
   
 **Dump Configuration**
 
@@ -32,8 +32,9 @@ Use the `config` command to print the global and per-section resolved config set
     Dumps/prints the configuration file
 
     optional arguments:
-      -h, --help              show this help message and exit
-      --config CONFIG         Location of the settings configuration file (default: None)
+      -h, --help                            show this help message and exit
+      --config CONFIG                       Location of the settings configuration file (default: None)
+      --sections SECTIONS [SECTIONS ...]    List of sections to process
 
 **Test Email Configuration**
 

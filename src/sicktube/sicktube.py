@@ -341,7 +341,7 @@ class Sicktube:
         else:
             self.runStats['new'] += 1
 
-        print '[{0} | {1} v {2}] {3}'.format(exists, self.runStats['new'], self.runStats['old'], saveName)
+        print '[{0} | {1} v {2}] {3}'.format(exists, self.runStats['new'], self.runStats['old'], saveName.encode('ascii', 'ignore'))
 
     def DryRun(self):
         self.runStats = { 'new': 0, 'old': 0 }
@@ -352,13 +352,16 @@ class Sicktube:
             urls = settings[INI_SETTINGS_URLS_OPT]
             self.ProcessUrls(section, urls, download=False)
 
-    def Download(self):
+    def Download(self, whitelistedSections=[]):
         self.runStats = { 'new': 0, 'old': 0 }
         for section in self.settings:
             # print self.settings[section]
             settings = self.GetSettingSectionOptions(section)
             # print settings
             if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
+                continue
+
+            if (len(whitelistedSections)) and (section.strip().lower() not in whitelistedSections):
                 continue
 
             urls = settings[INI_SETTINGS_URLS_OPT]
@@ -380,7 +383,14 @@ def run(st):
     parser.add_argument('--delay', action='store', help='Delay (in seconds) between repeating configuration processing/downloading')
     parser.add_argument('--dry', action='store_true', help='Dry run, do not download anything')
     parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    parser.add_argument('--sections', nargs='+', action='store', help='List of sections to process')
     args = parser.parse_args(sys.argv[2:])
+
+
+    whitelistedSections = []
+    if args.sections is not None:
+        for section in args.sections:
+            whitelistedSections.append(section.strip().lower())
 
     while True:
         # Parse the correct file
@@ -399,7 +409,7 @@ def run(st):
         st.SetYoutubeDlSettings(YOUTUBEDL_SETTINGS)
 
         # Do the processing and downloads
-        st.Download()
+        st.Download(whitelistedSections)
 
         # If repeat is not enabled, end now
         if not st.GetSettingSectionOptions()[Sicktube.SETTING_KEYS.SYS_REPEAT_ENABLE]:
@@ -415,6 +425,7 @@ def config(st):
     parser = argparse.ArgumentParser(description=commands['config'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--config', action='store', help='Location of the settings configuration file')
     parser.add_argument('--raw', action='store_true', help='Dump the parsed config file in an unstructured manner')
+    parser.add_argument('--sections', nargs='+', action='store', help='List of sections to process')
     args = parser.parse_args(sys.argv[2:])
 
     # Parse the correct file
@@ -430,9 +441,16 @@ def config(st):
             pprint(st.GetSectionOptions(configs, k))
         return
 
-    for k in configs:
-        print "\n[{0}]\n".format(k) + "{"
-        sectOpt = st.GetSectionOptions(configs, k)
+    whitelistedSections = []
+    if args.sections is not None:
+        for section in args.sections:
+            whitelistedSections.append(section.strip().lower())
+
+    for section in configs:
+        if (len(whitelistedSections)) and (section.strip().lower() not in whitelistedSections):
+            continue
+        print "\n[{0}]\n".format(section) + "{"
+        sectOpt = st.GetSectionOptions(configs, section)
         globOpt = st.GetSectionOptions(configs)
         keys=list(sectOpt.keys())
         keys.sort()
