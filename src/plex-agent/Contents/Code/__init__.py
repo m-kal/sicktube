@@ -106,7 +106,7 @@ class SicktubeAgentMovies(Agent.Movies):
         # Genres from folder detection
         if 'uploader' in downloadInfo:
             videoOutputDir = os.path.split(filename)[0]
-            if os.path.basename(videoOutputDir) == downloadInfo['uploader'].strip():
+            if os.path.basename(videoOutputDir).lower() == downloadInfo['uploader'].strip().lower():
                 section = os.path.basename(os.path.abspath(videoOutputDir + "/../"))
                 pass
             else:
