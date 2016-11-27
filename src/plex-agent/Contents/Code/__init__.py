@@ -68,7 +68,10 @@ class SicktubeAgentMovies(Agent.Movies):
     if os.path.exists(metadataDir):
         fDir = metadataDir
 
-    infoJsonFile = os.path.join(fDir, baseFileName + '.info.json')
+    infoJsonFile  = os.path.join(fDir, baseFileName + '.info.json')
+    titleJsonFile = os.path.join(fDir, title + '.info.json')
+    if not os.path.exists(infoJsonFile) and os.path.exists(titleJsonFile):
+        infoJsonFile = titleJsonFile
 
     metadata.title = "{0}".format(title)
     if os.path.exists(infoJsonFile):
