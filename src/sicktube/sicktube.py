@@ -287,7 +287,7 @@ class Sicktube:
             self.printUresDict(self.youtubeDl.prepare_filename(resDict))
             self.CleanupPostProcessUrl(resDict, section)
         else:
-            for entry in resDict['entries']:
+            for entry in [e for e in resDict['entries'] if e is not None]:
                 self.youtubeDl.process_info(entry)
                 self.printUresDict(self.youtubeDl.prepare_filename(entry))
                 self.CleanupPostProcessUrl(entry, section)
