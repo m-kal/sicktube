@@ -76,6 +76,7 @@ class Sicktube:
 
     def __init__(self):
         self.settings = settings.Setting().ConvergedDefaults()
+        self.settings['consoletitle'] = True
 
     # Static methods
     @staticmethod
@@ -118,8 +119,11 @@ class Sicktube:
     def MetadataFromUrl(url):
         # Force needed settings
         metadataYtdlOpts = YOUTUBEDL_SETTINGS.copy()
-        metadataYtdlOpts['quiet'] = True
-        metadataYtdlOpts['writeinfojson'] = False
+        metadataYtdlOpts.update({
+            'quite': True,
+            'writeinfojson': False,
+            'consoletitle': True
+        })
         # This changes the metadata formats returned in a best-effort to find any video
         # regardless of the video format. This is to increase the chance a video can be
         # found and thus retrieve its metadata.
@@ -236,7 +240,14 @@ class Sicktube:
             fullPath = '{0}/{1}'.format(fullPath, section)
         return '{0}/{1}'.format(fullPath, settings[self.SETTING_KEYS.FILE_ARCHIVE_NAME])
 
-    def TouchArchiveFile(self, path):
+    @staticmethod
+    def TouchArchiveFile(path):
+        """
+        Updates the modification time of the archive.log file, and creates path if none exists yet.
+
+        :param path: Path of destination archive.log file
+        :return: None
+        """
         basedir = os.path.dirname(path)
         if not os.path.exists(basedir):
             os.makedirs(basedir)
@@ -245,24 +256,32 @@ class Sicktube:
                 os.utime(path, None)
 
     def ProcessUrls(self, section, urls, download=False):
-        # BUG #4: ProcessUrls uses stale ytdl settings causing config overrides to be ignored
-        #runSettings = self.ytdlSettings
         runSettings = self.GetSettingSectionOptions(section)
-        runSettings['outtmpl'] = self.GetFullOutputTemplate(section)
-        runSettings['download_archive'] = self.GetFullArchiveFilePath(section)
+        runSettings.update({
+            'outtmpl': self.GetFullOutputTemplate(section),
+            'download_archive': self.GetFullArchiveFilePath(section),
+            'consoletitle': True
+        })
         if runSettings['dir.metadata.cache-enable']:
             runSettings['writeinfojson'] = True
 
-        self.TouchArchiveFile(runSettings['download_archive'])
+        if len(urls):
+            # Ensure archive file is present, but only if there are URLs to download
+            Sicktube.TouchArchiveFile(runSettings['download_archive'])
+
         if download:
             runSettings['skip_download'] = False
             runSettings['simulate'] = False
+
         self.SetYoutubeDlSettings(runSettings)
         for url in urls:
             self.ProcessUrl(url, section)
 
     def ProcessUrl(self, url, section):
         resDict = self.youtubeDl.extract_info(url=url, download=False)
+        if not resDict:
+            print "Cannot extract info from URL: {0}".format(url)
+            return
         if 'entries' not in resDict:
             self.youtubeDl.process_info(resDict)
             self.printUresDict(self.youtubeDl.prepare_filename(resDict))
