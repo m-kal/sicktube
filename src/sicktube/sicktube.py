@@ -10,6 +10,7 @@ import argparse
 import json
 import shutil
 import time
+import datetime
 from pprint import pprint
 
 import smtplib
@@ -82,7 +83,7 @@ class Sicktube:
     @staticmethod
     def FromConfigFile(filename=INI_FILE_SETTINGS_FILENAME, ytdlSettings=YOUTUBEDL_SETTINGS):
         if not os.path.exists(filename):
-            print '{0} does not exist.'.format(filename)
+            print('{0} does not exist.'.format(filename))
             return None
 
         ytsv = Sicktube()
@@ -280,7 +281,7 @@ class Sicktube:
     def ProcessUrl(self, url, section):
         resDict = self.youtubeDl.extract_info(url=url, download=False)
         if not resDict:
-            print "Cannot extract info from URL: {0}".format(url)
+            print("Cannot extract info from URL: {0}".format(url))
             return
         if 'entries' not in resDict:
             self.youtubeDl.process_info(resDict)
@@ -315,7 +316,7 @@ class Sicktube:
             # Regardless, the root cause is that the ie_info dict (info.json) is written before the manual
             # modifications to the dict get updated with MKV extension and filename updating. Updating the info.json
             # means Sicktube will rely on modified info.jsons rather than
-            print "BUG && TODO"
+            print("BUG && TODO")
             outputDir = self.ResolveTemplateWithDict(self.DetermineOutputDir(section), resDict)
             bestGuessFilename = self.ResolveTemplateWithDict(settings[self.SETTING_KEYS.FILE_TEMPLATE_NAME], resDict)
             fileFullPath = os.path.join(outputDir, bestGuessFilename)
@@ -335,15 +336,15 @@ class Sicktube:
             if os.path.exists(dst):
                 # Nothing to do, file already moved appropriately
                 return
-            print "Can't find {0}".format(src)
+            print("Can't find {0}".format(src))
             return
 
         if not os.path.exists(metadataDir):
-            print 'Creating metadatadir: {0}'.format(metadataDir)
+            print('Creating metadatadir: {0}'.format(metadataDir))
             try:
                 os.makedirs(metadataDir)
             except OSError, err:
-                print "OSError"
+                print("OSError")
                 pprint(err)
                 pass
 
@@ -360,7 +361,7 @@ class Sicktube:
         else:
             self.runStats['new'] += 1
 
-        print '[{0} | {1} v {2}] {3}'.format(exists, self.runStats['new'], self.runStats['old'], saveName.encode('ascii', 'ignore'))
+        print('[{0} | {1} v {2}] {3}'.format(exists, self.runStats['new'], self.runStats['old'], saveName.encode('ascii', 'ignore')))
 
     def DryRun(self):
         self.runStats = { 'new': 0, 'old': 0 }
@@ -392,7 +393,7 @@ class Sicktube:
             if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
                 continue
             urls = settings[INI_SETTINGS_URLS_OPT]
-            print '[{0}] = {1}'.format(section, urls)
+            print('[{0}] = {1}'.format(section, urls))
 
 
 # First-Order CLI commands
@@ -436,9 +437,8 @@ def run(st):
 
         # Repeat not enabled, so wait for the appropriate duration
         repeatDelay = st.GetSettingSectionOptions()[Sicktube.SETTING_KEYS.SYS_REPEAT_DELAY]
-        print "Waiting {0} seconds before next iteration".format(repeatDelay)
+        print("Waiting {0} seconds before next iteration".format(repeatDelay))
         time.sleep(repeatDelay)
-
 
 def config(st):
     parser = argparse.ArgumentParser(description=commands['config'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -453,10 +453,12 @@ def config(st):
     else:
         configs = st.ParseConfigFile()
 
+    st.SetSettings(configs)
+
     # Pretty print each config
     if args.raw:
         for k in configs:
-            print '\nSection Config For: {0}\n'.format(k)
+            print('\nSection Config For: {0}\n'.format(k))
             pprint(st.GetSectionOptions(configs, k))
         return
 
@@ -465,20 +467,30 @@ def config(st):
         for section in args.sections:
             whitelistedSections.append(section.strip().lower())
 
+    now = datetime.datetime.now()
     for section in configs:
         if (len(whitelistedSections)) and (section.strip().lower() not in whitelistedSections):
             continue
-        print "\n[{0}]\n".format(section) + "{"
+        print("\n[{0}]\n".format(section) + "{")
         sectOpt = st.GetSectionOptions(configs, section)
         globOpt = st.GetSectionOptions(configs)
         keys=list(sectOpt.keys())
         keys.sort()
         for k in keys:
-            if k in globOpt and globOpt[k] == sectOpt[k]:
-                print "  {0: <30} : {1}".format(k, sectOpt[k])
+            value = sectOpt[k]
+            modified = (k in globOpt and globOpt[k] == sectOpt[k])
+            if k == settings.Setting.Keys().FILE_ARCHIVE_NAME:
+                archive_path = st.GetFullArchiveFilePath(section)
+                if os.path.exists(archive_path):
+                    mod_time = os.path.getmtime(archive_path)
+                    dtm = datetime.datetime.fromtimestamp(mod_time)
+                    print(now - dtm)
+
+            if modified:
+                print("  {0: <30} : {1}".format(k, value))
             else:
-                print "  {0: <30}*: {1}".format(k, sectOpt[k])
-        print "}"
+                print("  {0: <30}*: {1}".format(k, value))
+        print("}")
 
 def email(st):
     parser = argparse.ArgumentParser(description=commands['email'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -503,10 +515,10 @@ def email(st):
     msg['To'] = args.to_addr
     s.sendmail(msg['From'], msg['To'], msg.as_string())
     s.quit()
-    print 'Email message sent from `{0}` to `{1}` with a subject of `{2}`'.format(args.from_addr, args.to_addr,
-                                                                                  args.subject)
-    print 'Email Feature Status: {0}'.format(
-        'Enabled' if configs[INI_FILE_SETTINGS_SECTION][Sicktube.SETTING_KEYS.EMAIL_ENABLE] else 'Disabled')
+    print('Email message sent from `{0}` to `{1}` with a subject of `{2}`'.format(args.from_addr, args.to_addr,
+                                                                                  args.subject))
+    print('Email Feature Status: {0}'.format(
+        'Enabled' if configs[INI_FILE_SETTINGS_SECTION][Sicktube.SETTING_KEYS.EMAIL_ENABLE] else 'Disabled'))
 
 
 def metadata(st):
@@ -523,16 +535,16 @@ def metadata(st):
     else:
         absPath = os.path.abspath(args.save_as)
         if not os.path.exists(absPath):
-            print '{0} doesnt exist yet'.format(absPath)
+            print('{0} doesnt exist yet'.format(absPath))
 
         # Dump the dict to file through the json lib rather than a print-style dump
         f = open(absPath, 'w')
         json.dump(metadataDict, f)
         f.close()
         # Use the youtubeDL() instance from MetadataFromUrl to obtain any extra information
-        print '{0} written with {1} bytes of data for video `{2}`'.format(args.save_as,
+        print('{0} written with {1} bytes of data for video `{2}`'.format(args.save_as,
                                                                           os.path.getsize(absPath),
-                                                                          ytld._make_archive_id(metadataDict))
+                                                                          ytld._make_archive_id(metadataDict)))
 
 
 # main()
