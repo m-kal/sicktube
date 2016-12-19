@@ -26,11 +26,12 @@ TODO:
 * [~] Video file rename changes may cause issue looking up `.info.json` files *// can make this a hard-no*
 * [ ] Instantiate a video-saver at PlexAgent initialization/Start() *// needed for per-section settings*
 * [x] Configure a` .metadata-cache` folder and setting?
-* [x] Configurare an archives file? *// maybe have [...]/.metadata-cache/archive.log*
+* [x] Configure an archives file? *// maybe have [...]/.metadata-cache/archive.log*
 * [x] Enable email
 * [x] Ensure email gets config param and loads settings for email addrs and ports
 * [x] Create a default prefs
 * [x] Load a default prefs
+* [ ] Import playlists into Plex, add a playlists.import configure var
 '''
 
 # Consts
