@@ -47,10 +47,13 @@ class Setting(object):
             ##'file.metadata.cache.prefer': True,
             ##'file.metadata.cache.force-rebuild': False,
 
-            # Email server configuratiton
+            # Email server settings
             k.EMAIL_ENABLE: True,
             k.EMAIL_SERVER: 'localhost',
-            k.EMAIL_PORT: 25
+            k.EMAIL_PORT: 25,
+
+            # Playlist settings
+            k.PLAYLISTS_IMPORT: False
         }
 
     class Keys(object):
@@ -102,3 +105,8 @@ class Setting(object):
         @constant
         def EMAIL_PORT(self=None):
             return 'email.port'
+
+        '''Playlist Keys'''
+        @constant
+        def PLAYLISTS_IMPORT(self=None):
+            return 'playlists.import'

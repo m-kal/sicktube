@@ -10,5 +10,6 @@
     "file.archive.global": false,
     "email.enable": true,
     "email.server": "localhost",
-    "email.port": 25
+    "email.port": 25,
+    "playlists.import": false
 }

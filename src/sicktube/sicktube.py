@@ -58,6 +58,7 @@ commands = {
     'config': 'Dumps/prints the configuration file',
     'email': 'Email yourself a test message to check if the email options are configured correctly',
     'metadata': 'Dumps/prints metadata for a url, useful for testing',
+    'playlists': 'Dumps the playlists found in .metadata files',
     'run': 'Process urls from configuration files'
 }
 # program consts
@@ -185,9 +186,23 @@ class Sicktube:
         sectionUrlDict = {}
         configOptions = {}
         # Use a RawConfigParser to disable option name interpolation
-        # so as not to conflict with templateing strings for Youtube-DL
+        # so as not to conflict with templating strings for Youtube-DL
         config = ConfigParser.RawConfigParser(globalOptions, allow_no_value=True)
         config.read(filename)
+
+        # hacky for now
+        int_keys = [
+            self.SETTING_KEYS.SYS_REPEAT_DELAY,
+            self.SETTING_KEYS.EMAIL_PORT
+        ]
+        boolean_keys = [
+            self.SETTING_KEYS.SYS_REPEAT_ENABLE,
+            self.SETTING_KEYS.DIR_VIDEO_AUTHOR,
+            self.SETTING_KEYS.DIR_METADATA_CACHE_ENABLE,
+            self.SETTING_KEYS.FILE_ARCHIVE_GLOBAL,
+            self.SETTING_KEYS.EMAIL_ENABLE,
+            self.SETTING_KEYS.PLAYLISTS_IMPORT
+        ]
 
         # Process the global options from the config
         overWriteGlobalOpts = {}
@@ -195,7 +210,13 @@ class Sicktube:
             for section in config.sections():
                 if section == INI_FILE_SETTINGS_SECTION:
                     for option in config.options(section):
+                        # Force the correct type of data
                         overWriteGlobalOpts[option] = config.get(section, option)
+                        # Force the correct type of data
+                        if option in int_keys:
+                            overWriteGlobalOpts[option] = int(overWriteGlobalOpts[option])
+                        elif option in boolean_keys:
+                            overWriteGlobalOpts[option] = bool(overWriteGlobalOpts[option])
 
         for key in overWriteGlobalOpts:
             globalOptions[key] = overWriteGlobalOpts[key]
@@ -215,6 +236,12 @@ class Sicktube:
             sectionOptions = { INI_SETTINGS_URLS_OPT: [] }
             for option in config.options(section):
                 optionVal = config.get(section, option)
+                # Force the correct type of data
+                if option in int_keys:
+                    optionVal = int(optionVal)
+                elif option in boolean_keys:
+                    optionVal = bool(optionVal)
+
                 if option == INI_FILE_SETTINGS_URLS_OPT:
                     urlList = [s.strip() for s in optionVal.splitlines() if not s.startswith('#') and not s.startswith(';')]
                     sectionOptions[INI_SETTINGS_URLS_OPT] = urlList
@@ -548,6 +575,89 @@ def metadata(st):
                                                                           ytld._make_archive_id(metadataDict)))
 
 
+def playlists(st):
+    parser = argparse.ArgumentParser(description=commands['playlists'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    args = parser.parse_args(sys.argv[2:])
+
+    # Parse the correct file
+    if args.config is not None:
+        configs = st.ParseConfigFile(filename=args.config)
+    else:
+        configs = st.ParseConfigFile()
+
+    st.SetSettings(configs)
+
+    # Recurse through each directory looking for .metadata dirs
+    # For each dir.root in the config
+    metadata_dirs = []
+    section_playlists = {}
+    dir_root = st.settings[INI_FILE_SETTINGS_SECTION][st.SETTING_KEYS.DIR_ROOT]
+    for section in st.settings:
+        settings = st.GetSettingSectionOptions(section)
+        if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
+            continue
+
+        if not settings[st.SETTING_KEYS.DIR_METADATA_CACHE_ENABLE]:
+            continue
+
+        if not settings[st.SETTING_KEYS.PLAYLISTS_IMPORT]:
+            continue
+
+        # Ensure this section is marked for playlist import
+        section_playlists[section] = True
+
+        dir_root = settings[st.SETTING_KEYS.DIR_ROOT]
+        metadata_dir_name = settings[st.SETTING_KEYS.DIR_METADATA_NAME]
+        # Look for a metadata dir starting from the dir root
+        for root, dirs, files in os.walk(dir_root):
+            for dir in dirs:
+                metadata_dir_path = os.path.join(root, dir, metadata_dir_name)
+                if os.path.exists(metadata_dir_path):
+                    metadata_dirs.append(metadata_dir_path)
+
+    # Uniquify the existing metadata dirs and sort them alphabetically
+    unique_dirs = list(set(metadata_dirs))
+    unique_dirs.sort()
+
+    playlists = {}
+    for metadata_dir in unique_dirs:
+        # Process each .info.json file
+        for root, dirs, files in os.walk(metadata_dir):
+            # Only process sections that are marked
+            playlist_section = None
+            for section in st.settings:
+                section_path = os.path.join(dir_root, section)
+                if metadata_dir.startswith(section_path):
+                    playlist_section = section
+
+            if playlist_section not in section_playlists:
+                continue
+
+            for file in files:
+                if file.endswith(".info.json"):
+                    file_path = os.path.join(root, file)
+                    download_info = json.load(open(file_path))
+
+                    if 'playlist_title' in download_info:
+                        # Increment playlist counts, eg: playlists[name] += 1
+                        pt = download_info['playlist_title']
+
+                        # Skip default playlists
+                        if pt.startswith(u'Uploads from '):
+                            continue
+
+                        if playlist_section not in playlists:
+                            playlists[playlist_section] = {}
+
+                        if pt in playlists[playlist_section]:
+                            playlists[playlist_section][pt] = 1 + playlists[playlist_section][pt]
+                        else:
+                            playlists[playlist_section][pt] = 1
+
+    # Print each playlist with its item count
+    pprint(playlists)
+
 # main()
 if __name__ == '__main__':
     """
@@ -579,3 +689,5 @@ The most commonly used %(prog)s commands are:
         email(st)
     elif 'metadata' == args.command:
         metadata(st)
+    elif 'playlists' == args.command:
+        playlists(st)
