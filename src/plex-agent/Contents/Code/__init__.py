@@ -23,8 +23,7 @@ def unicodize(s):
   return filename
 
 def LogMsg(msg):
-  #Utils.Log(msg, level=1, source="Sicktube Agent")
-    pass
+    Utils.Log(msg, level=1, source="Sicktube Agent")
 
 def Start():
   pass
