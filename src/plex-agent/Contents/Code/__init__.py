@@ -23,7 +23,8 @@ def unicodize(s):
   return filename
 
 def LogMsg(msg):
-  Utils.Log(msg, level=1, source="Sicktube Agent")
+  #Utils.Log(msg, level=1, source="Sicktube Agent")
+    pass
 
 def Start():
   pass
@@ -105,6 +106,14 @@ class SicktubeAgentMovies(Agent.Movies):
         # Taglines
         if 'playlist_title' in downloadInfo:
             metadata.tagline = downloadInfo['playlist_title'].strip()
+
+        # Thumbnails
+        if 'thumbnails' in downloadInfo:
+            i = 0
+            for thumb in downloadInfo['thumbnails']:
+                url = thumb['url']
+                metadata.posters[url] = Proxy.Preview(HTTP.Request(url), sort_order=i)
+                i += 1
 
         # Genres from folder detection
         if 'uploader' in downloadInfo:
