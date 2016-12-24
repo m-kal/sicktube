@@ -17,6 +17,8 @@ import smtplib
 from email.mime.text import MIMEText
 import sicktube
 import settings
+from playlister import Playlister
+from plexdb import PlexDB
 '''
 TODO:
 * [x] Add missing youtube metadata
@@ -183,8 +185,6 @@ class Sicktube:
         globalOptions = settings.Setting.ConvergedDefaults()
         globalOptions.update(YOUTUBEDL_SETTINGS)
 
-        sectionUrlDict = {}
-        configOptions = {}
         # Use a RawConfigParser to disable option name interpolation
         # so as not to conflict with templating strings for Youtube-DL
         config = ConfigParser.RawConfigParser(globalOptions, allow_no_value=True)
@@ -423,6 +423,63 @@ class Sicktube:
             urls = settings[INI_SETTINGS_URLS_OPT]
             print('[{0}] = {1}'.format(section, urls))
 
+    def find_metadata_files(self):
+        # Recurse through each directory looking for .metadata dirs
+        # For each dir.root in the config
+        metadata_dirs = []
+        section_playlists = {}
+        dir_root = self.settings[INI_FILE_SETTINGS_SECTION][self.SETTING_KEYS.DIR_ROOT]
+        for section in self.settings:
+            settings = self.GetSettingSectionOptions(section)
+            if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
+                continue
+
+            if not settings[self.SETTING_KEYS.DIR_METADATA_CACHE_ENABLE]:
+                continue
+
+            if not settings[self.SETTING_KEYS.PLAYLISTS_IMPORT]:
+                continue
+
+            # Ensure this section is marked for playlist import
+            section_playlists[section] = True
+
+            dir_root = settings[self.SETTING_KEYS.DIR_ROOT]
+            metadata_dir_name = settings[self.SETTING_KEYS.DIR_METADATA_NAME]
+            # Look for a metadata dir starting from the dir root
+            for root, dirs, files in os.walk(dir_root):
+                for dir in dirs:
+                    metadata_dir_path = os.path.join(root, dir, metadata_dir_name)
+                    if os.path.exists(metadata_dir_path):
+                        metadata_dirs.append(metadata_dir_path)
+
+        # Uniquify the existing metadata dirs and sort them alphabetically
+        unique_dirs = list(set(metadata_dirs))
+        unique_dirs.sort()
+
+        metadata_files = []
+        for metadata_dir in unique_dirs:
+            # Process each .info.json file
+            for root, dirs, files in os.walk(metadata_dir):
+                # Only process sections that are marked
+                playlist_section = None
+                for section in self.settings:
+                    section_path = os.path.join(dir_root, section)
+                    if metadata_dir.startswith(section_path):
+                        playlist_section = section
+
+                if playlist_section not in section_playlists:
+                    continue
+
+                for file in files:
+                    if file.endswith(".info.json"):
+                        file_path = os.path.join(root, file)
+                        metadata_files.append(file_path)
+
+        return metadata_files
+
+    def process_metadata_files(self, files=[], callback=None):
+        pass
+
 
 # First-Order CLI commands
 def run(st):
@@ -548,7 +605,6 @@ def email(st):
     print('Email Feature Status: {0}'.format(
         'Enabled' if configs[INI_FILE_SETTINGS_SECTION][Sicktube.SETTING_KEYS.EMAIL_ENABLE] else 'Disabled'))
 
-
 def metadata(st):
     parser = argparse.ArgumentParser(description=commands['metadata'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('url', action='store', help='URL to extract metadata for')
@@ -574,7 +630,6 @@ def metadata(st):
                                                                           os.path.getsize(absPath),
                                                                           ytld._make_archive_id(metadataDict)))
 
-
 def playlists(st):
     parser = argparse.ArgumentParser(description=commands['playlists'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--config', action='store', help='Location of the settings configuration file')
@@ -588,75 +643,48 @@ def playlists(st):
 
     st.SetSettings(configs)
 
+    dbdir = "\Plex Media Server\Plug-in Support\Databases"
+    #plister = Playlister()
+    #plister.test(dbdir)
+    plex = PlexDB(dbdir)
+    if not plex.connect():
+        print("Unsuccessful connection to database, exiting...")
+        exit(1)
+
+    plexdb_playlists = plex.get_playlists()
+
     # Recurse through each directory looking for .metadata dirs
     # For each dir.root in the config
-    metadata_dirs = []
-    section_playlists = {}
-    dir_root = st.settings[INI_FILE_SETTINGS_SECTION][st.SETTING_KEYS.DIR_ROOT]
-    for section in st.settings:
-        settings = st.GetSettingSectionOptions(section)
-        if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
-            continue
-
-        if not settings[st.SETTING_KEYS.DIR_METADATA_CACHE_ENABLE]:
-            continue
-
-        if not settings[st.SETTING_KEYS.PLAYLISTS_IMPORT]:
-            continue
-
-        # Ensure this section is marked for playlist import
-        section_playlists[section] = True
-
-        dir_root = settings[st.SETTING_KEYS.DIR_ROOT]
-        metadata_dir_name = settings[st.SETTING_KEYS.DIR_METADATA_NAME]
-        # Look for a metadata dir starting from the dir root
-        for root, dirs, files in os.walk(dir_root):
-            for dir in dirs:
-                metadata_dir_path = os.path.join(root, dir, metadata_dir_name)
-                if os.path.exists(metadata_dir_path):
-                    metadata_dirs.append(metadata_dir_path)
-
-    # Uniquify the existing metadata dirs and sort them alphabetically
-    unique_dirs = list(set(metadata_dirs))
-    unique_dirs.sort()
-
+    metadata_files = st.find_metadata_files()
     playlists = {}
-    for metadata_dir in unique_dirs:
-        # Process each .info.json file
-        for root, dirs, files in os.walk(metadata_dir):
-            # Only process sections that are marked
-            playlist_section = None
-            for section in st.settings:
-                section_path = os.path.join(dir_root, section)
-                if metadata_dir.startswith(section_path):
-                    playlist_section = section
+    plmgr = Playlister(dbdir)
+    metadatas = plmgr.file_paths_to_metadata(metadata_files)
+    for metadata in metadatas:
+        if 'playlist_title' in metadata:
+            file_path = metadata['_file_path']
+            # Increment playlist counts, eg: playlists[name] += 1
+            pt = metadata['playlist_title']
 
-            if playlist_section not in section_playlists:
+            # Skip default playlists
+            if pt.startswith(u'Uploads from '):
                 continue
 
-            for file in files:
-                if file.endswith(".info.json"):
-                    file_path = os.path.join(root, file)
-                    download_info = json.load(open(file_path))
-
-                    if 'playlist_title' in download_info:
-                        # Increment playlist counts, eg: playlists[name] += 1
-                        pt = download_info['playlist_title']
-
-                        # Skip default playlists
-                        if pt.startswith(u'Uploads from '):
-                            continue
-
-                        if playlist_section not in playlists:
-                            playlists[playlist_section] = {}
-
-                        if pt in playlists[playlist_section]:
-                            playlists[playlist_section][pt] = 1 + playlists[playlist_section][pt]
-                        else:
-                            playlists[playlist_section][pt] = 1
+            if pt in playlists:
+                playlists[pt]['count'] = 1 + playlists[pt]['count']
+                playlists[pt]['file_paths'].append(file_path)
+            else:
+                playlists[pt] = {'count': 1, 'file_paths': [file_path]}
 
     # Print each playlist with its item count
-    pprint(playlists)
+    # pprint(playlists)
+    metadata_titles = []
+
+    for title, dict in playlists.items():
+        metadata_titles.append(title)
+        # print("Processing playlist: %s" % title)
+        # playlist_id = plex.get_playlist_id_by_title(title)
+        plmgr.create_plexdb_playlist(title, dict['file_paths'])
+        # print("")
 
 # main()
 if __name__ == '__main__':
