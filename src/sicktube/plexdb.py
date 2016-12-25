@@ -158,9 +158,9 @@ class PlexDB:
             # Check if this media item already exists or not in play_queue_generators
             cur.execute('SELECT id FROM play_queue_generators WHERE playlist_id=? AND metadata_item_id=?', (playlist_id, media_entry['id']))
             pqg_id = cur.fetchone()
-            if pqg_id is not None:
+            if pqg_id is not None and 'id' in pqg_id:
                 # print("pqg_id: %d" % pqg_id)
-                cur.execute('UPDATE play_queue_generators SET order=? WHERE id=?', (order, pqg_id))
+                cur.execute('UPDATE play_queue_generators SET `order`=? WHERE id=?', (order, int(pqg_id['id'])))
             else:
                 # print("pqg_id not found: %d and %d" % (playlist_id, media_entry['id']))
                 cur.execute("INSERT INTO play_queue_generators (created_at, updated_at, playlist_id, metadata_item_id, `order`) VALUES ((DATETIME('now')), (DATETIME('now')), ?, ?, ?)" , (playlist_id, media_entry['id'], order))

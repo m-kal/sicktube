@@ -60,6 +60,7 @@ commands = {
     'config': 'Dumps/prints the configuration file',
     'email': 'Email yourself a test message to check if the email options are configured correctly',
     'metadata': 'Dumps/prints metadata for a url, useful for testing',
+    'update-metadata': 'Forces a metadata refresh for each section',
     'playlists': 'Dumps the playlists found in .metadata files',
     'run': 'Process urls from configuration files'
 }
@@ -216,7 +217,11 @@ class Sicktube:
                         if option in int_keys:
                             overWriteGlobalOpts[option] = int(overWriteGlobalOpts[option])
                         elif option in boolean_keys:
-                            overWriteGlobalOpts[option] = bool(overWriteGlobalOpts[option])
+                            val = overWriteGlobalOpts[option]
+                            # Account for non-empty strings returning True
+                            if val in ['False', 'false', 0, '0', '', 'no', 'n']:
+                                val = False
+                            overWriteGlobalOpts[option] = bool(val)
 
         for key in overWriteGlobalOpts:
             globalOptions[key] = overWriteGlobalOpts[key]
@@ -240,6 +245,9 @@ class Sicktube:
                 if option in int_keys:
                     optionVal = int(optionVal)
                 elif option in boolean_keys:
+                    # Account for non-empty strings returning True
+                    if optionVal in ['False', 'false', 0, '0', '', 'no', 'n']:
+                        optionVal = False
                     optionVal = bool(optionVal)
 
                 if option == INI_FILE_SETTINGS_URLS_OPT:
@@ -284,17 +292,19 @@ class Sicktube:
             with open(path, 'a'):
                 os.utime(path, None)
 
-    def ProcessUrls(self, section, urls, download=False):
+    def ProcessUrls(self, section, urls, download=False, enable_archive=True):
         runSettings = self.GetSettingSectionOptions(section)
         runSettings.update({
             'outtmpl': self.GetFullOutputTemplate(section),
-            'download_archive': self.GetFullArchiveFilePath(section),
             'consoletitle': True
         })
         if runSettings['dir.metadata.cache-enable']:
             runSettings['writeinfojson'] = True
 
-        if len(urls):
+        if enable_archive:
+            runSettings['download_archive'] = self.GetFullArchiveFilePath(section)
+
+        if len(urls) and 'download_archive' in runSettings:
             # Ensure archive file is present, but only if there are URLs to download
             Sicktube.TouchArchiveFile(runSettings['download_archive'])
 
@@ -401,7 +411,8 @@ class Sicktube:
             self.ProcessUrls(section, urls, download=False)
 
     def Download(self, whitelistedSections=[]):
-        self.runStats = { 'new': 0, 'old': 0 }
+        self.runStats = { 'n'
+                          'ew': 0, 'old': 0 }
         for section in self.settings:
             # print self.settings[section]
             settings = self.GetSettingSectionOptions(section)
@@ -423,13 +434,14 @@ class Sicktube:
             urls = settings[INI_SETTINGS_URLS_OPT]
             print('[{0}] = {1}'.format(section, urls))
 
-    def find_metadata_files(self):
+    def find_metadata_dirs(self, playlist_import_mode=False):
         # Recurse through each directory looking for .metadata dirs
         # For each dir.root in the config
         metadata_dirs = []
         section_playlists = {}
-        dir_root = self.settings[INI_FILE_SETTINGS_SECTION][self.SETTING_KEYS.DIR_ROOT]
-        for section in self.settings:
+        sorted_sections = self.settings.keys()
+        sorted_sections.sort()
+        for section in sorted_sections:
             settings = self.GetSettingSectionOptions(section)
             if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
                 continue
@@ -437,8 +449,9 @@ class Sicktube:
             if not settings[self.SETTING_KEYS.DIR_METADATA_CACHE_ENABLE]:
                 continue
 
-            if not settings[self.SETTING_KEYS.PLAYLISTS_IMPORT]:
-                continue
+            if playlist_import_mode:
+                if not settings[self.SETTING_KEYS.PLAYLISTS_IMPORT]:
+                    continue
 
             # Ensure this section is marked for playlist import
             section_playlists[section] = True
@@ -456,24 +469,35 @@ class Sicktube:
         unique_dirs = list(set(metadata_dirs))
         unique_dirs.sort()
 
-        metadata_files = []
-        for metadata_dir in unique_dirs:
+        return unique_dirs
+
+
+    def find_metadata_files(self, playlist_import_mode=False):
+        # Recurse through each directory looking for .metadata dirs
+        # For each dir.root in the config
+        dir_root = self.settings[INI_FILE_SETTINGS_SECTION][self.SETTING_KEYS.DIR_ROOT]
+
+        metadata_dirs = self.find_metadata_dirs(playlist_import_mode)
+        sorted_sections = self.settings.keys()
+        sorted_sections.sort()
+
+        metadata_files = {}
+        for metadata_dir in metadata_dirs:
             # Process each .info.json file
             for root, dirs, files in os.walk(metadata_dir):
                 # Only process sections that are marked
                 playlist_section = None
-                for section in self.settings:
+                for section in sorted_sections:
                     section_path = os.path.join(dir_root, section)
                     if metadata_dir.startswith(section_path):
                         playlist_section = section
 
-                if playlist_section not in section_playlists:
-                    continue
-
+                if playlist_section not in metadata_files:
+                    metadata_files[playlist_section] = []
                 for file in files:
                     if file.endswith(".info.json"):
                         file_path = os.path.join(root, file)
-                        metadata_files.append(file_path)
+                        metadata_files[playlist_section].append(file_path)
 
         return metadata_files
 
@@ -630,6 +654,133 @@ def metadata(st):
                                                                           os.path.getsize(absPath),
                                                                           ytld._make_archive_id(metadataDict)))
 
+def update_metadata(st):
+    parser = argparse.ArgumentParser(description=commands['update-metadata'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    parser.add_argument('--sections', nargs='+', action='store', help='List of sections to process')
+    args = parser.parse_args(sys.argv[2:])
+
+    # Parse the correct file
+    if args.config is not None:
+        configs = st.ParseConfigFile(filename=args.config)
+    else:
+        configs = st.ParseConfigFile()
+
+    st.SetSettings(configs)
+
+    whitelistedSections = []
+    if args.sections is not None:
+        for section in args.sections:
+            whitelistedSections.append(section.strip().lower())
+
+    # Map old dir to new dir
+    class MetadataMappings:
+
+        @staticmethod
+        def dir_path_to_backup(dir_path):
+            metadata_dir = os.path.basename(dir_path)
+            backup_metadata_dir = os.path.join(os.path.dirname(dir_path), "%s.backup" % metadata_dir)
+            return backup_metadata_dir
+
+        def __init__(self, original):
+            self.original = original
+            self.backup = MetadataMappings.dir_path_to_backup(original)
+
+        def move_originals_to_backup(self):
+            # For all info json files in original path, move to backup, overwrite backups
+            if not os.path.exists(self.backup):
+                os.makedirs(self.backup)
+
+            # Process each .info.json file
+            for root, dirs, files in os.walk(self.original):
+                for file in files:
+                    if file.endswith(".info.json"):
+                        file_path = os.path.join(self.original, file)
+                        backup_file_path = os.path.join(self.backup, file)
+
+                        if not os.path.exists(file_path):
+                            print("Source file %s doesn't exist" % file_path)
+                            continue
+
+                        # Overwrite the backup file so we have the latest one
+                        if os.path.exists(backup_file_path):
+                            os.remove(backup_file_path)
+
+                        # Move from original to backup including metadata
+                        shutil.move(file_path, self.backup)
+                        if not os.path.exists(backup_file_path):
+                            print("Backup file %s could not be created" % backup_file_path)
+                            continue
+
+        def copy_backups_to_original(self):
+            # For all info json files in backup path, copy to original, do not overwrite originals
+            # Process each .info.json file
+            for root, dirs, files in os.walk(self.backup):
+                for file in files:
+                    if file.endswith(".info.json"):
+                        backup_file_path = os.path.join(self.backup, file)
+                        original_file_path = os.path.join(self.original, file)
+
+                        # Don't overwrite "original" files as they may be updated
+                        if os.path.exists(original_file_path):
+                            #print("%s already exists, assuming it is more recent than our backed-up file" % original_file_path)
+                            os.remove(backup_file_path)
+                            continue
+
+                        # Copy from original to backup including metadata
+                        shutil.move(backup_file_path, self.original)
+                        new_file_path = os.path.join(self.original, file)
+                        if not os.path.exists(new_file_path):
+                            print("%s could not be created" % new_file_path)
+                            continue
+
+        def remove_backup_dir(self):
+            # Delete the backup dir
+            if os.path.exists(self.backup):
+                try:
+                    os.rmdir(self.backup)
+                except:
+                    print("Could not remove backup dir %s, most likely not empty" % self.backup)
+
+    metadata_dir_backup_mappings = []
+    for metadata_path in st.find_metadata_dirs(playlist_import_mode=False):
+        # Process these dirs agnostically to the section
+        metadata_dir_backup_mappings.append(MetadataMappings(metadata_path))
+
+    # Back up the current metadata files
+    for mm in metadata_dir_backup_mappings:
+        mm.move_originals_to_backup()
+
+    # Download the metadata and skip the video file download
+    st.SetYoutubeDlSettings(YOUTUBEDL_SETTINGS)
+
+    # Do the processing and downloads
+    for section in st.settings:
+        # print self.settings[section]
+        settings = st.GetSettingSectionOptions(section)
+        # print settings
+        if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
+            continue
+
+        if (len(whitelistedSections)) and (section.strip().lower() not in whitelistedSections):
+            continue
+
+        # This is super volatile because download=True is needed to get the extracted info.json, but that means
+        # that we depend on a video-file overwrite file-check to prevent repeating a download, which means if any
+        # sections/options change the format, we could be repeating video downloads for metadata updates, which violates
+        # the intentions of the function. Likely need to poke into youtube-dl and do extraction and saving manually
+        urls = settings[INI_SETTINGS_URLS_OPT]
+        st.ProcessUrls(section, urls, download=True, enable_archive=False)
+
+    # Restore anything that wasn't able to be freshly updated
+    for mm in metadata_dir_backup_mappings:
+        mm.copy_backups_to_original()
+
+    for mm in metadata_dir_backup_mappings:
+        mm.remove_backup_dir()
+
+    # pprint(metadata_dir_backup_mappings)
+
 def playlists(st):
     parser = argparse.ArgumentParser(description=commands['playlists'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--config', action='store', help='Location of the settings configuration file')
@@ -651,40 +802,50 @@ def playlists(st):
         print("Unsuccessful connection to database, exiting...")
         exit(1)
 
-    plexdb_playlists = plex.get_playlists()
+    # plexdb_playlists = plex.get_playlists()
 
     # Recurse through each directory looking for .metadata dirs
     # For each dir.root in the config
-    metadata_files = st.find_metadata_files()
+    metadata_files = st.find_metadata_files(playlist_import_mode=True)
+
     playlists = {}
     plmgr = Playlister(dbdir)
-    metadatas = plmgr.file_paths_to_metadata(metadata_files)
-    for metadata in metadatas:
-        if 'playlist_title' in metadata:
-            file_path = metadata['_file_path']
-            # Increment playlist counts, eg: playlists[name] += 1
-            pt = metadata['playlist_title']
+    for section, metadata_files in metadata_files.items():
+        metadatas = plmgr.file_paths_to_metadata(metadata_files)
+        metadatas.sort()
+        for metadata in metadatas:
+            if 'playlist_title' in metadata:
+                file_path = metadata['_file_path']
+                # Increment playlist counts, eg: playlists[name] += 1
+                pt = metadata['playlist_title']
 
-            # Skip default playlists
-            if pt.startswith(u'Uploads from '):
-                continue
+                # Skip default playlists
+                if pt.startswith(u'Uploads from '):
+                    continue
 
-            if pt in playlists:
-                playlists[pt]['count'] = 1 + playlists[pt]['count']
-                playlists[pt]['file_paths'].append(file_path)
-            else:
-                playlists[pt] = {'count': 1, 'file_paths': [file_path]}
+                if section not in playlists:
+                    playlists[section] = {}
 
-    # Print each playlist with its item count
-    # pprint(playlists)
-    metadata_titles = []
+                if pt in playlists[section]:
+                    playlists[section][pt]['count'] = 1 + playlists[section][pt]['count']
+                    playlists[section][pt]['file_paths'].append(file_path)
+                else:
+                    playlists[section][pt] = {'count': 1, 'file_paths': [file_path]}
 
-    for title, dict in playlists.items():
-        metadata_titles.append(title)
+        # Print each playlist with its item count
+        # pprint(playlists)
+        # metadata_titles = []
+
+    keys = playlists.keys()
+    keys.sort()
+    for section in keys:
+        section_playlists = playlists[section]
+        # metadata_titles.append(title)
         # print("Processing playlist: %s" % title)
         # playlist_id = plex.get_playlist_id_by_title(title)
-        plmgr.create_plexdb_playlist(title, dict['file_paths'])
-        # print("")
+        for title, dict in section_playlists.items():
+            plmgr.create_plexdb_playlist(title, dict['file_paths'])
+            # print("")
 
 # main()
 if __name__ == '__main__':
@@ -717,5 +878,7 @@ The most commonly used %(prog)s commands are:
         email(st)
     elif 'metadata' == args.command:
         metadata(st)
+    elif 'update-metadata' == args.command:
+        update_metadata(st)
     elif 'playlists' == args.command:
         playlists(st)
