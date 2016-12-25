@@ -125,7 +125,7 @@ class PlexDB:
         return False
 
     @staticmethod
-    def sql_create_playlist_metadata_item(section_id, title, guid=None, extra_data=None, title_sort=None, absolute_index=10):
+    def sql_create_playlist_metadata_item(section_id, title, guid=None, extra_data=None, title_sort=None, absolute_index=1):
         if guid is None:
             guid = 'com.plexapp.agents.sicktube://' + str(uuid.uuid1())
 
