@@ -53,7 +53,10 @@ class Setting(object):
             k.EMAIL_PORT: 25,
 
             # Playlist settings
-            k.PLAYLISTS_IMPORT: False
+            k.PLAYLISTS_IMPORT: False,
+
+            # Plex settings
+            k.PLEX_DIR_DATABASE: 'c:/Plex Media Server/Plug-in Support/Databases'
         }
 
     class Keys(object):
@@ -110,3 +113,8 @@ class Setting(object):
         @constant
         def PLAYLISTS_IMPORT(self=None):
             return 'playlists.import'
+
+        '''Plex Keys'''
+        @constant
+        def PLEX_DIR_DATABASE(self=None):
+            return 'plex.dir.database'

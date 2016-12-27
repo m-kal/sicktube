@@ -59,7 +59,8 @@ class Playlister:
 
             media_entries[idx] = media_entry
 
-    def file_path_to_metadata(self, file_path):
+    @staticmethod
+    def file_path_to_metadata(file_path):
         if os.path.exists(file_path):
             return json.load(open(file_path))
         return None
@@ -68,10 +69,11 @@ class Playlister:
     def insert_playlist_entry(plexdb_metadata_item, idx):
         order = PlexDB.idx_to_plex_order(idx)
 
-    def file_paths_to_metadata(self, file_paths=[]):
+    @staticmethod
+    def file_paths_to_metadata(file_paths=[]):
         metadatas = []
         for file_path in file_paths:
-            metadata = self.file_path_to_metadata(file_path)
+            metadata = Playlister.file_path_to_metadata(file_path)
             if metadata is not None:
                 metadata['_file_path'] = file_path
                 metadatas.append(metadata)
@@ -87,7 +89,7 @@ class Playlister:
         # Load .info.json files from file paths and do basic validation
         metadata = []
         playlist_reported_entry_counts = {}
-        raw_metadata = self.file_paths_to_metadata(file_paths)
+        raw_metadata = Playlister.file_paths_to_metadata(file_paths)
         for rmd in raw_metadata:
             if Playlister.keys_in_dict(rmd, ['n_entries', 'playlist_index']):
                 metadata.append(rmd)

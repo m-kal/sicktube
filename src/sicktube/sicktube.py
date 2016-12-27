@@ -12,13 +12,13 @@ import shutil
 import time
 import datetime
 from pprint import pprint
+from collections import OrderedDict
 
 import smtplib
 from email.mime.text import MIMEText
 import sicktube
 import settings
 from playlister import Playlister
-from plexdb import PlexDB
 '''
 TODO:
 * [x] Add missing youtube metadata
@@ -56,14 +56,14 @@ YOUTUBEDL_SETTINGS = {
     'ignoreerrors':     True
 }
 
-commands = {
-    'config': 'Dumps/prints the configuration file',
-    'email': 'Email yourself a test message to check if the email options are configured correctly',
-    'metadata': 'Dumps/prints metadata for a url, useful for testing',
-    'update-metadata': 'Forces a metadata refresh for each section',
-    'playlists': 'Dumps the playlists found in .metadata files',
-    'run': 'Process urls from configuration files'
-}
+commands = OrderedDict()
+commands['run'] = 'Process urls from configuration files'
+commands['config'] = 'Dumps/prints the configuration file'
+commands['email'] = 'Email yourself a test message to check if the email options are configured correctly'
+commands['metadata'] = 'Dumps/prints metadata for a url, useful for testing'
+commands['update-metadata'] = 'Forces a metadata refresh for each section'
+commands['playlists'] = 'Dumps the playlists found in .metadata files'
+
 # program consts
 PROG_NAME = 'Sicktube'
 
@@ -456,7 +456,10 @@ class Sicktube:
             # Ensure this section is marked for playlist import
             section_playlists[section] = True
 
-            dir_root = settings[self.SETTING_KEYS.DIR_ROOT]
+            dir_root = os.path.join(settings[self.SETTING_KEYS.DIR_ROOT], section)
+            if not os.path.exists(dir_root):
+                continue
+
             metadata_dir_name = settings[self.SETTING_KEYS.DIR_METADATA_NAME]
             # Look for a metadata dir starting from the dir root
             for root, dirs, files in os.walk(dir_root):
@@ -567,8 +570,10 @@ def config(st):
     # Pretty print each config
     if args.raw:
         for k in configs:
+            config_values = st.GetSectionOptions(configs, k)
             print('\nSection Config For: {0}\n'.format(k))
-            pprint(st.GetSectionOptions(configs, k))
+            print('Plex database found: %s' % os.path.exists(config_values[st.SETTING_KEYS.PLEX_DIR_DATABASE]))
+            pprint(config_values)
         return
 
     whitelistedSections = []
@@ -594,6 +599,8 @@ def config(st):
                     mod_time = os.path.getmtime(archive_path)
                     dtm = datetime.datetime.fromtimestamp(mod_time)
                     print(now - dtm)
+            elif k == settings.Setting.Keys().PLEX_DIR_DATABASE:
+                print("  {0: <30} : {1}".format('(Plex database found)', os.path.exists(sectOpt[st.SETTING_KEYS.PLEX_DIR_DATABASE])))
 
             if modified:
                 print("  {0: <30} : {1}".format(k, value))
@@ -752,25 +759,36 @@ def update_metadata(st):
         mm.move_originals_to_backup()
 
     # Download the metadata and skip the video file download
-    st.SetYoutubeDlSettings(YOUTUBEDL_SETTINGS)
-
     # Do the processing and downloads
     for section in st.settings:
-        # print self.settings[section]
         settings = st.GetSettingSectionOptions(section)
-        # print settings
         if (section is INI_FILE_SETTINGS_SECTION) or (INI_SETTINGS_URLS_OPT not in settings):
             continue
 
         if (len(whitelistedSections)) and (section.strip().lower() not in whitelistedSections):
             continue
 
-        # This is super volatile because download=True is needed to get the extracted info.json, but that means
-        # that we depend on a video-file overwrite file-check to prevent repeating a download, which means if any
-        # sections/options change the format, we could be repeating video downloads for metadata updates, which violates
-        # the intentions of the function. Likely need to poke into youtube-dl and do extraction and saving manually
+        # Right now there is an implicit fragile contract between the higher level `cli cmds` and Sicktube.
+        # Sicktube needs to formalize the API better such that it is configurable without needing to
+        # make use of a public "set settings/options" because that means that `cli cmds` understands
+        # youtube-dl is leveraged under the hood.
+        ytdl_settings = settings.copy()
+        ytdl_settings.update({
+            'outtmpl': st.GetFullOutputTemplate(section),
+            'consoletitle': True,
+            'writeinfojson': True,
+            'simulate': False,
+            'skip_download': True
+        })
+
+        st.SetYoutubeDlSettings(ytdl_settings)
+
+        # Force the info json file writes while skipping the download.
+        # Simulate must be False so that files are written, but skip_download is used
+        # to prevent the video file from being written.
         urls = settings[INI_SETTINGS_URLS_OPT]
-        st.ProcessUrls(section, urls, download=True, enable_archive=False)
+        for url in urls:
+            st.ProcessUrl(url, section)
 
     # Restore anything that wasn't able to be freshly updated
     for mm in metadata_dir_backup_mappings:
@@ -794,35 +812,24 @@ def playlists(st):
 
     st.SetSettings(configs)
 
-    dbdir = "\Plex Media Server\Plug-in Support\Databases"
-    #plister = Playlister()
-    #plister.test(dbdir)
-    plex = PlexDB(dbdir)
-    if not plex.connect():
-        print("Unsuccessful connection to database, exiting...")
-        exit(1)
-
-    # plexdb_playlists = plex.get_playlists()
-
     # Recurse through each directory looking for .metadata dirs
     # For each dir.root in the config
     metadata_files = st.find_metadata_files(playlist_import_mode=True)
 
     playlists = {}
-    plmgr = Playlister(dbdir)
     for section, metadata_files in metadata_files.items():
-        metadatas = plmgr.file_paths_to_metadata(metadata_files)
+        metadatas = Playlister.file_paths_to_metadata(metadata_files)
         metadatas.sort()
         for metadata in metadatas:
             if 'playlist_title' in metadata:
                 file_path = metadata['_file_path']
-                # Increment playlist counts, eg: playlists[name] += 1
                 pt = metadata['playlist_title']
 
                 # Skip default playlists
                 if pt.startswith(u'Uploads from '):
                     continue
 
+                # Increment playlist counts, eg: playlists[name] += 1
                 if section not in playlists:
                     playlists[section] = {}
 
@@ -832,20 +839,16 @@ def playlists(st):
                 else:
                     playlists[section][pt] = {'count': 1, 'file_paths': [file_path]}
 
-        # Print each playlist with its item count
-        # pprint(playlists)
-        # metadata_titles = []
-
     keys = playlists.keys()
     keys.sort()
     for section in keys:
+        settings = st.GetSettingSectionOptions(section)
+        db_dir = settings[st.SETTING_KEYS.PLEX_DIR_DATABASE]
+        plmgr = Playlister(db_dir)
+
         section_playlists = playlists[section]
-        # metadata_titles.append(title)
-        # print("Processing playlist: %s" % title)
-        # playlist_id = plex.get_playlist_id_by_title(title)
         for title, dict in section_playlists.items():
             plmgr.create_plexdb_playlist(title, dict['file_paths'])
-            # print("")
 
 # main()
 if __name__ == '__main__':
@@ -853,8 +856,10 @@ if __name__ == '__main__':
     Do argument setup / description, and execute subcommand
     """
     cmdStr = ''
-    for cmd, desc in sorted(commands.items()):
-        cmdStr += '  %s%s\n' % (cmd.ljust(10, ' '), desc)
+    # Get the longest cli cmd so padding can be properly calculated
+    max_len = len(max(commands.items(), key=lambda i: len(i[0]))[0])
+    for (cmd, desc) in commands.items():
+        cmdStr += '  %s%s\n' % (cmd.ljust(max_len + 2, ' '), desc)
 
     parser = argparse.ArgumentParser(prog=PROG_NAME, description='', usage='''%(prog)s <command> [<args>]
 

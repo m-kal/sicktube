@@ -11,5 +11,6 @@
     "email.enable": true,
     "email.server": "localhost",
     "email.port": 25,
-    "playlists.import": false
+    "playlists.import": false,
+    "plex.dir.database": "c:/Plex Media Server/Plug-in Support/Databases"
 }
