@@ -13,28 +13,13 @@ import time
 import datetime
 from pprint import pprint
 from collections import OrderedDict
+import sqlite3
 
 import smtplib
 from email.mime.text import MIMEText
 import sicktube
 import settings
 from playlister import Playlister
-'''
-TODO:
-* [x] Add missing youtube metadata
-* [x] Add metadata test function
-* [x] Add url-to-metadata static method to get metadata from `webpage_url`
-* [x] Add config dump cli method
-* [~] Video file rename changes may cause issue looking up `.info.json` files *// can make this a hard-no*
-* [ ] Instantiate a video-saver at PlexAgent initialization/Start() *// needed for per-section settings*
-* [x] Configure a` .metadata-cache` folder and setting?
-* [x] Configure an archives file? *// maybe have [...]/.metadata-cache/archive.log*
-* [x] Enable email
-* [x] Ensure email gets config param and loads settings for email addrs and ports
-* [x] Create a default prefs
-* [x] Load a default prefs
-* [ ] Import playlists into Plex, add a playlists.import configure var
-'''
 
 # Consts
 INI_FILE_SETTINGS_FILENAME = 'settings.cfg'
@@ -53,7 +38,9 @@ YOUTUBEDL_SETTINGS = {
     'writeinfojson':    True,                   # Write out the info.json file for the metadata archive
     'quiet':            False,                  # Don't spam the console with debug info
     'ffmpeg_location':  'c:/ffmpeg/bin',        # Location of FFMPEG
-    'ignoreerrors':     True
+    'ignoreerrors':     True,
+
+    'nooverwrites':     True
 }
 
 commands = OrderedDict()
@@ -63,6 +50,7 @@ commands['email'] = 'Email yourself a test message to check if the email options
 commands['metadata'] = 'Dumps/prints metadata for a url, useful for testing'
 commands['update-metadata'] = 'Forces a metadata refresh for each section'
 commands['playlists'] = 'Dumps the playlists found in .metadata files'
+commands['browser'] = 'Creates configuration file from browser history or lists supported URLs in browser history'
 
 # program consts
 PROG_NAME = 'Sicktube'
@@ -166,10 +154,32 @@ class Sicktube:
                     return ''
                 else:
                     return candidate
-            except KeyError, e:
+            except KeyError as e:
                 # On failures use a empty string placeholder
                 workDict[e.message] = ''
                 templateFailures += 1
+
+    def BuildYoutubeDLSettings(self, section, output_template='', download_metadata_file=False, download_video_file=False, allow_overwrites=False):
+        settings = self.GetSettingSectionOptions(section)
+        ytdl_settings = settings.copy()
+
+        if len(output_template):
+            ytdl_settings['outtmpl'] = output_template
+
+        if allow_overwrites:
+            ytdl_settings['nooverwrites'] = (not allow_overwrites)
+
+        ytdl_settings.update({
+            # Forced settings
+            'consoletitle': True,
+
+            # Configurable settings
+            'writeinfojson': download_metadata_file,
+            'simulate': (not download_metadata_file and not download_video_file),
+            'skip_download': (not download_video_file)
+        })
+
+        return ytdl_settings
 
     # Object methods
     def SetSettings(self, settings):
@@ -259,15 +269,21 @@ class Sicktube:
 
         return parsedOptions
 
-    def DetermineOutputDir(self, section):
+    def DetermineOutputDir(self, section, for_metadata=False):
         settings = self.GetSettingSectionOptions(section)
         if settings[self.SETTING_KEYS.DIR_VIDEO_AUTHOR]:
-            return '{0}/{1}/%(uploader)s/'.format(settings[self.SETTING_KEYS.DIR_ROOT], section)
-        return '{0}/{1}/'.format(settings[self.SETTING_KEYS.DIR_ROOT], section)
+            base_dir = '{0}/{1}/%(uploader)s/'.format(settings[self.SETTING_KEYS.DIR_ROOT], section)
+        else:
+            base_dir = '{0}/{1}/'.format(settings[self.SETTING_KEYS.DIR_ROOT], section)
 
-    def GetFullOutputTemplate(self, section):
+        if for_metadata:
+            base_dir = '{0}/{1}/'.format(base_dir, settings[self.SETTING_KEYS.DIR_METADATA_NAME])
+
+        return base_dir
+
+    def GetFullOutputTemplate(self, section, for_metadata=False):
         settings = self.GetSettingSectionOptions(section)
-        return '{0}{1}'.format(self.DetermineOutputDir(section), settings[self.SETTING_KEYS.FILE_TEMPLATE_NAME])
+        return '{0}{1}'.format(self.DetermineOutputDir(section, for_metadata), settings[self.SETTING_KEYS.FILE_TEMPLATE_NAME])
 
     def GetFullArchiveFilePath(self, section):
         settings = self.GetSettingSectionOptions(section)
@@ -316,7 +332,7 @@ class Sicktube:
         for url in urls:
             self.ProcessUrl(url, section)
 
-    def ProcessUrl(self, url, section):
+    def ProcessUrl(self, url, section, for_metadata=False):
         resDict = self.youtubeDl.extract_info(url=url, download=False)
         if not resDict:
             print("Cannot extract info from URL: {0}".format(url))
@@ -324,12 +340,14 @@ class Sicktube:
         if 'entries' not in resDict:
             self.youtubeDl.process_info(resDict)
             self.printUresDict(self.youtubeDl.prepare_filename(resDict))
-            self.CleanupPostProcessUrl(resDict, section)
+            if not for_metadata:
+                self.CleanupPostProcessUrl(resDict, section)
         else:
             for entry in [e for e in resDict['entries'] if e is not None]:
                 self.youtubeDl.process_info(entry)
                 self.printUresDict(self.youtubeDl.prepare_filename(entry))
-                self.CleanupPostProcessUrl(entry, section)
+                if not for_metadata:
+                    self.CleanupPostProcessUrl(entry, section)
 
     def CleanupPostProcessUrl(self, resDict, section):
         # Move any metadata files if needed to subdirs
@@ -381,7 +399,7 @@ class Sicktube:
             print('Creating metadatadir: {0}'.format(metadataDir))
             try:
                 os.makedirs(metadataDir)
-            except OSError, err:
+            except OSError as err:
                 print("OSError")
                 pprint(err)
                 pass
@@ -475,7 +493,7 @@ class Sicktube:
         return unique_dirs
 
 
-    def find_metadata_files(self, playlist_import_mode=False):
+    def find_metadata_files(self, playlist_import_mode=False, allowed_sections=[]):
         # Recurse through each directory looking for .metadata dirs
         # For each dir.root in the config
         dir_root = self.settings[INI_FILE_SETTINGS_SECTION][self.SETTING_KEYS.DIR_ROOT]
@@ -494,6 +512,9 @@ class Sicktube:
                     section_path = os.path.join(dir_root, section)
                     if metadata_dir.startswith(section_path):
                         playlist_section = section
+
+                if len(allowed_sections) and (playlist_section.strip().lower() not in allowed_sections):
+                    continue
 
                 if playlist_section not in metadata_files:
                     metadata_files[playlist_section] = []
@@ -582,7 +603,8 @@ def config(st):
             whitelistedSections.append(section.strip().lower())
 
     now = datetime.datetime.now()
-    for section in configs:
+    keys = sorted(configs.keys())
+    for section in keys:
         if (len(whitelistedSections)) and (section.strip().lower() not in whitelistedSections):
             continue
         print("\n[{0}]\n".format(section) + "{")
@@ -768,18 +790,12 @@ def update_metadata(st):
         if (len(whitelistedSections)) and (section.strip().lower() not in whitelistedSections):
             continue
 
-        # Right now there is an implicit fragile contract between the higher level `cli cmds` and Sicktube.
-        # Sicktube needs to formalize the API better such that it is configurable without needing to
-        # make use of a public "set settings/options" because that means that `cli cmds` understands
-        # youtube-dl is leveraged under the hood.
-        ytdl_settings = settings.copy()
-        ytdl_settings.update({
-            'outtmpl': st.GetFullOutputTemplate(section),
-            'consoletitle': True,
-            'writeinfojson': True,
-            'simulate': False,
-            'skip_download': True
-        })
+        ytdl_settings = st.BuildYoutubeDLSettings(
+            section,
+            output_template=st.GetFullOutputTemplate(section),
+            download_metadata_file=True,
+            download_video_file=False,
+            allow_overwrites=True)
 
         st.SetYoutubeDlSettings(ytdl_settings)
 
@@ -788,7 +804,7 @@ def update_metadata(st):
         # to prevent the video file from being written.
         urls = settings[INI_SETTINGS_URLS_OPT]
         for url in urls:
-            st.ProcessUrl(url, section)
+            st.ProcessUrl(url, section, for_metadata=True)
 
     # Restore anything that wasn't able to be freshly updated
     for mm in metadata_dir_backup_mappings:
@@ -802,6 +818,7 @@ def update_metadata(st):
 def playlists(st):
     parser = argparse.ArgumentParser(description=commands['playlists'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    parser.add_argument('--sections', nargs='+', action='store', help='List of sections to process')
     args = parser.parse_args(sys.argv[2:])
 
     # Parse the correct file
@@ -812,9 +829,14 @@ def playlists(st):
 
     st.SetSettings(configs)
 
+    whitelistedSections = []
+    if args.sections is not None:
+        for section in args.sections:
+            whitelistedSections.append(section.strip().lower())
+
     # Recurse through each directory looking for .metadata dirs
     # For each dir.root in the config
-    metadata_files = st.find_metadata_files(playlist_import_mode=True)
+    metadata_files = st.find_metadata_files(playlist_import_mode=True, allowed_sections=whitelistedSections)
 
     playlists = {}
     for section, metadata_files in metadata_files.items():
@@ -849,6 +871,152 @@ def playlists(st):
         section_playlists = playlists[section]
         for title, dict in section_playlists.items():
             plmgr.create_plexdb_playlist(title, dict['file_paths'])
+
+def browser(st):
+    parser = argparse.ArgumentParser(description=commands['playlists'], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('database', action='store', help='Web browser sqlite database file path')
+    parser.add_argument('--browser', action='store', help='Force browser type instead of auto-detect')
+    parser.add_argument('--profile', action='store', help='Browser profile to load')
+    parser.add_argument('--max-urls', action='store', help='Maxiumum URLs to import')
+    parser.add_argument('--config', action='store', help='Location of the settings configuration file')
+    args = parser.parse_args(sys.argv[2:])
+
+    # TODO: insert plex views based off browser timestamps
+
+    # pprint(args)
+    filter_generic = True
+    add_all_settings_output_cfg = False
+    if not os.path.exists(args.database):
+        print("Browser database file '%s' cannot be found" % args.database)
+        return
+
+    # Parse the correct file
+    if args.config is not None:
+        configs = st.ParseConfigFile(filename=args.config)
+    else:
+        configs = st.ParseConfigFile()
+
+    # Force defaults
+    configs = st.ParseConfigFile()
+    st.SetSettings(configs)
+
+    # Begin importing the history
+    start = time.time()
+    db = sqlite3.connect(args.database)
+
+    # Determine the browser type (firefox or chrome supported at the moment)
+    browser = ''
+    if args.browser is None:
+        sql_firefox = "SELECT name FROM sqlite_master WHERE type='table' AND name='moz_places'"
+        sql_chrome = "SELECT name FROM sqlite_master WHERE type='table' AND name='urls'"
+
+        cur = db.cursor()
+        cur.execute(sql_firefox)
+        res = cur.fetchone()
+        if res is not None and len(res):
+            browser = 'firefox'
+
+        if not len(browser):
+            cur.execute(sql_chrome)
+            res = cur.fetchone()
+            if res is not None and len(res):
+                browser = 'chrome'
+
+    if not len(browser):
+        print("Browser history database type not detected, exiting...")
+        return
+
+    # Get the unique URL history count
+    cur = db.cursor()
+    if 'firefox' == browser:
+        cur.execute("SELECT COUNT(DISTINCT(url)) FROM moz_places")
+    elif 'chrome' == browser:
+        cur.execute("SELECT COUNT(DISTINCT(url)) FROM urls")
+    res = cur.fetchone()
+
+    print("Unique urls to analyze: %d" % res[0])
+
+    # Create output settings cfg file
+    dirname = os.path.dirname(args.database)
+    import_config_path = os.path.join(dirname, 'places.cfg')
+    import_cfg_file = open(import_config_path, 'w')
+
+    # Grab the unique urls, limit if needed
+    cur = db.cursor()
+    if 'firefox' == browser:
+        db_history_table = 'moz_places'
+    elif 'chrome' == browser:
+        db_history_table = 'urls'
+    if args.max_urls is not None and args.max_urls > 0:
+        cur.execute("SELECT DISTINCT(url) FROM ? ORDER BY url LIMIT ?", (db_history_table, int(args.max_urls)))
+    else:
+        cur.execute("SELECT DISTINCT(url) FROM ? ORDER BY url", (db_history_table,))
+    res = cur.fetchall()
+
+    urls = []
+    for r in res:
+        url = r[0]
+        urls.append(url)
+    db.close()
+
+    # Find which ones are suitable from yt-dl
+    # TODO: ytdl_settings = st.ytdl_settings_for_task(task='download') # task in ['download', 'metadata', 'info_json', ...]
+    ytdl_settings = st.BuildYoutubeDLSettings(
+        None,
+        download_metadata_file=False,
+        download_video_file=False,
+        allow_overwrites=False)
+
+    ytdl = youtube_dl.YoutubeDL(ytdl_settings)
+    ie_urls = {}
+    urls_suitable = 0
+    for url in urls:
+        for ie in ytdl._ies:
+            if not ie.suitable(url):
+                continue
+            key = ie.ie_key()
+            if filter_generic and (key == 'Generic'):
+                continue
+
+            if key in ie_urls:
+                ie_urls[key].append(url)
+            else:
+                ie_urls[key] = [url]
+
+                urls_suitable += 1
+            break
+    print("Found %d suitable urls out of %d unique urls" % (urls_suitable, len(urls)))
+
+    for ie_key, url_list in ie_urls.items():
+        print("%s had %d unique url%s" % (ie_key, len(url_list), 's' if len(url_list) > 1 else ''))
+    end = time.time()
+    print(end - start)
+
+    # Write out the config file
+    config = ConfigParser.RawConfigParser({}, allow_no_value=True)
+    # Global sections first
+    if add_all_settings_output_cfg:
+        config.add_section(INI_FILE_SETTINGS_SECTION)
+        for k,v in st.settings[INI_FILE_SETTINGS_SECTION].items():
+            config.set(INI_FILE_SETTINGS_SECTION, k, v)
+
+    # Process individual sections by treating each extractor as a section
+    keys = sorted(ie_urls.keys())
+    for key in keys:
+        urls = ie_urls[key]
+        config.add_section(key)
+        config.set(key, INI_FILE_SETTINGS_URLS_OPT, '\n'.join(urls))
+
+    # Write it all out
+    config.write(import_cfg_file)
+    import_cfg_file.close()
+
+    globalOptions = settings.Setting.ConvergedDefaults()
+    globalOptions.update(YOUTUBEDL_SETTINGS)
+    config_confimed = ConfigParser.RawConfigParser(globalOptions, allow_no_value=True)
+    config_confimed.read(import_config_path)
+
+    print("%d sections in config file" % len(config_confimed.sections()))
 
 # main()
 if __name__ == '__main__':
@@ -887,3 +1055,5 @@ The most commonly used %(prog)s commands are:
         update_metadata(st)
     elif 'playlists' == args.command:
         playlists(st)
+    elif 'browser' == args.command:
+        browser(st)
